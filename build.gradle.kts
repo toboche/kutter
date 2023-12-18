@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
-    kotlin("jvm") version "1.9.20"
+    kotlin("jvm") version "1.7.10"
     id("io.github.gradle-nexus.publish-plugin") version "1.1.0"
 }
 
@@ -16,8 +16,6 @@ repositories {
     maven {
         url = uri("https://plugins.gradle.org/m2/")
     }
-    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    google()
 }
 
 dependencies {
@@ -29,7 +27,7 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "17"
+    kotlinOptions.jvmTarget = "11"
 }
 
 nexusPublishing {

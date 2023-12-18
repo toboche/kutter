@@ -2,28 +2,23 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
     java
-    kotlin("jvm") version "1.9.20"
-//    application
+    kotlin("jvm") version "1.7.10"
+    application
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("org.jetbrains.compose") version "1.5.11"
 }
 
 group = "com.pi4j"
 version = "0.2"
 
-//application {
-//    mainClass.set("MinimalExampleKt")
-//}
+application {
+    mainClass.set("MinimalExampleKt")
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    //to run on mac:
-    //    implementation(compose.desktop.currentOs)
-    // to run on rpi:
-    implementation(compose.desktop.linux_arm64)
     implementation("com.pi4j:pi4j-ktx:2.4.0") // Kotlin DSL
     implementation("com.pi4j:pi4j-core:2.3.0")
     implementation("com.pi4j:pi4j-plugin-raspberrypi:2.3.0")
@@ -36,22 +31,16 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
-compose.desktop {
-    application {
-        mainClass = "MainKt"
-    }
-}
-
 tasks.getByName<Test>("test") {
     useJUnitPlatform()
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.jvmTarget = "17"
+    kotlinOptions.jvmTarget = "11"
 }
 tasks.withType<Jar> {
     manifest {
-        attributes["Main-Class"] = "MainKt"
+        attributes["Main-Class"] = "MinimalExampleKt"
     }
 }
 
