@@ -1,0 +1,21 @@
+name: Release pi4j-kotlin
+
+on: workflow_dispatch
+
+jobs:
+  release-pi4j-ktx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 7.4.2
+      - name: release project
+        env:
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SECRET }}
+          ORG_GRADLE_PROJECT_signingPassphrase: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          ./gradlew build
+          ./gradlew  publishPi4j-ktxPublicationToSonatypeRepository closeAndReleaseSonatypeStagingRepository

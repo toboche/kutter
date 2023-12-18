@@ -1,0 +1,17 @@
+name: Build pi4j-kotlin
+
+on:
+  push:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 7.4.2
+      - name: build project
+        run: ./gradlew build
+      - name: Run tests
+        run: ./gradlew lib:check
