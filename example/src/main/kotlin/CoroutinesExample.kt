@@ -34,33 +34,33 @@ private var pressCount = 0
  *
  * @author Muhammad Hashim (mhashim6) (<a href="https://mhashim6.me">https://mhashim6.me</a>)
  */
-fun main() {
-    pi4jAsync {
-        console {
-            digitalInput(PIN_BUTTON) {
-                id("button")
-                name("Press button")
-                pull(PullResistance.PULL_DOWN)
-                debounce(3000L)
-                piGpioProvider()
-            }.onLow {
-                pressCount++
-                +"Button was pressed for the ${pressCount}th time"
-            }
-
-            digitalOutput(PIN_LED) {
-                id("led")
-                name("LED Flasher")
-                shutdown(DigitalState.LOW)
-                initial(DigitalState.LOW)
-                piGpioProvider()
-            }.run {
-                while (pressCount < 5) {
-                    +"LED ${state()}"
-                    toggle()
-                    delay(500L / (pressCount + 1))
-                }
-            }
-        }
-    }
-}
+//fun main() {
+//    pi4jAsync {
+//        console {
+//            digitalInput(PIN_BUTTON) {
+//                id("button")
+//                name("Press button")
+//                pull(PullResistance.PULL_DOWN)
+//                debounce(3000L)
+//                piGpioProvider()
+//            }.onLow {
+//                pressCount++
+//                +"Button was pressed for the ${pressCount}th time"
+//            }
+//
+//            digitalOutput(PIN_LED) {
+//                id("led")
+//                name("LED Flasher")
+//                shutdown(DigitalState.LOW)
+//                initial(DigitalState.LOW)
+//                piGpioProvider()
+//            }.run {
+//                while (pressCount < 5) {
+//                    +"LED ${state()}"
+//                    toggle()
+//                    delay(500L / (pressCount + 1))
+//                }
+//            }
+//        }
+//    }
+//}
