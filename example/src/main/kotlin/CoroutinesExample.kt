@@ -26,41 +26,41 @@ private const val PIN_BUTTON = 24 // PIN 18 = BCM 24
 private const val PIN_LED = 22 // PIN 15 = BCM 22
 private var pressCount = 0
 
-/**
- * This application blinks a led and counts the number the button is pressed. The blink speed increases with each
- * button press, and after 5 presses the application finishes.
- *
- * This example fully describes the basic usage of Pi4J-Kotlin + Coroutines
- *
- * @author Muhammad Hashim (mhashim6) (<a href="https://mhashim6.me">https://mhashim6.me</a>)
- */
-fun main() {
-    pi4jAsync {
-        console {
-            digitalInput(PIN_BUTTON) {
-                id("button")
-                name("Press button")
-                pull(PullResistance.PULL_DOWN)
-                debounce(3000L)
-                piGpioProvider()
-            }.onLow {
-                pressCount++
-                +"Button was pressed for the ${pressCount}th time"
-            }
-
-            digitalOutput(PIN_LED) {
-                id("led")
-                name("LED Flasher")
-                shutdown(DigitalState.LOW)
-                initial(DigitalState.LOW)
-                piGpioProvider()
-            }.run {
-                while (pressCount < 5) {
-                    +"LED ${state()}"
-                    toggle()
-                    delay(500L / (pressCount + 1))
-                }
-            }
-        }
-    }
-}
+///**
+// * This application blinks a led and counts the number the button is pressed. The blink speed increases with each
+// * button press, and after 5 presses the application finishes.
+// *
+// * This example fully describes the basic usage of Pi4J-Kotlin + Coroutines
+// *
+// * @author Muhammad Hashim (mhashim6) (<a href="https://mhashim6.me">https://mhashim6.me</a>)
+// */
+//fun main() {
+//    pi4jAsync {
+//        console {
+//            digitalInput(PIN_BUTTON) {
+//                id("button")
+//                name("Press button")
+//                pull(PullResistance.PULL_DOWN)
+//                debounce(3000L)
+//                piGpioProvider()
+//            }.onLow {
+//                pressCount++
+//                +"Button was pressed for the ${pressCount}th time"
+//            }
+//
+//            digitalOutput(PIN_LED) {
+//                id("led")
+//                name("LED Flasher")
+//                shutdown(DigitalState.LOW)
+//                initial(DigitalState.LOW)
+//                piGpioProvider()
+//            }.run {
+//                while (pressCount < 5) {
+//                    +"LED ${state()}"
+//                    toggle()
+//                    delay(500L / (pressCount + 1))
+//                }
+//            }
+//        }
+//    }
+//}

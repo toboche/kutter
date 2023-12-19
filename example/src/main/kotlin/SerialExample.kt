@@ -26,46 +26,46 @@ import java.lang.Thread.sleep
  * @author Muhammad Hashim (mhashim6) (<a href="https://mhashim6.me">https://mhashim6.me</a>) on 26/02/2023
  */
 
-fun main() {
-    pi4j {
-        serial("/dev/ttyS0") {
-            use_9600_N81()
-            dataBits_8()
-            parity(Parity.NONE)
-            stopBits(StopBits._1)
-            flowControl(FlowControl.NONE)
-            piGpioSerialProvider()
-        }.open {
-            console {
-                +"Waiting till serial port is open"
-                while (!isOpen) {
-                    print(".")
-                    sleep(250)
-                }
-                println()
-
-                +"Serial port is open"
-                startDaemon {
-                    inputStream.bufferedReader().use {
-                        while (true) {
-                            if (available() != 0) sleep(10)
-                            else buildString {
-                                (0 until available()).forEach { _ ->
-                                    readByte().let { b ->
-                                        // All non-string bytes are handled as line breaks
-                                        if (b < 32) return@forEach
-                                        else append(b.toInt().toChar())
-                                    }
-                                }
-                            }.also { +"Data: '$it'" }
-                        }
-                    }
-                }
-                while (isOpen) sleep(500)
-            }
-        }
-    }
-}
+//fun main() {
+//    pi4j {
+//        serial("/dev/ttyS0") {
+//            use_9600_N81()
+//            dataBits_8()
+//            parity(Parity.NONE)
+//            stopBits(StopBits._1)
+//            flowControl(FlowControl.NONE)
+//            piGpioSerialProvider()
+//        }.open {
+//            console {
+//                +"Waiting till serial port is open"
+//                while (!isOpen) {
+//                    print(".")
+//                    sleep(250)
+//                }
+//                println()
+//
+//                +"Serial port is open"
+//                startDaemon {
+//                    inputStream.bufferedReader().use {
+//                        while (true) {
+//                            if (available() != 0) sleep(10)
+//                            else buildString {
+//                                (0 until available()).forEach { _ ->
+//                                    readByte().let { b ->
+//                                        // All non-string bytes are handled as line breaks
+//                                        if (b < 32) return@forEach
+//                                        else append(b.toInt().toChar())
+//                                    }
+//                                }
+//                            }.also { +"Data: '$it'" }
+//                        }
+//                    }
+//                }
+//                while (isOpen) sleep(500)
+//            }
+//        }
+//    }
+//}
 
 fun startDaemon(runnable: Runnable) = Thread(runnable).apply {
     isDaemon = true

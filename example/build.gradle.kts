@@ -5,6 +5,7 @@ plugins {
     kotlin("jvm") version "1.7.10"
     application
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    id ("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "com.pi4j"
@@ -12,6 +13,11 @@ version = "0.2"
 
 application {
     mainClass.set("MinimalExampleKt")
+}
+
+javafx {this
+    version = "21.0.1"
+    modules = listOf("javafx.controls")
 }
 
 repositories {
