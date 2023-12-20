@@ -15,10 +15,7 @@
 import com.pi4j.ktx.console
 import com.pi4j.ktx.io.i2c
 import com.pi4j.ktx.io.linuxFsI2CProvider
-import com.pi4j.ktx.io.setPin
 import com.pi4j.ktx.pi4j
-import com.pi4j.ktx.utils.binStr
-import java.lang.Thread.sleep
 
 
 private const val TCA9534_REG_ADDR_OUT_PORT: Int = 0x01
@@ -29,40 +26,58 @@ private const val TCA9534_REG_ADDR_CFG: Int = 0x03
  */
 fun main() {
     pi4j {
-        i2c(1, 0x3f) {
-            id("TCA9534")
+        i2c(1, 0x54) {
+//            id("TCA9534")
             linuxFsI2CProvider()
-        }.use { tca9534Dev ->
-            val config = tca9534Dev.readRegister(TCA9534_REG_ADDR_CFG)
-            check(config >= 0) {
-                "Failed to read configuration from address 0x${"%02x".format(TCA9534_REG_ADDR_CFG)}"
-            }
+        }.use { i2c ->
+            i2c.isOpen
+//            val config = i2c.readRegister(TCA9534_REG_ADDR_CFG)
+//            check(config >= 0) {
+//                "Failed to read configuration from address 0x${"%02x".format(TCA9534_REG_ADDR_CFG)}"
+//            }
+//
+//            var currentState = i2c.readRegister(TCA9534_REG_ADDR_OUT_PORT)
+//            if (config != 0x00) {
+//                println(
+//                    "TCA9534 is not configured as OUTPUT, setting register 0x${"%02x".format(TCA9534_REG_ADDR_CFG)} to 0x00"
+//                )
+//                currentState = 0x00
+//                i2c.writeRegister(TCA9534_REG_ADDR_OUT_PORT, currentState)
+//                i2c.writeRegister(TCA9534_REG_ADDR_CFG, 0x00)
+//            }
 
-            var currentState = tca9534Dev.readRegister(TCA9534_REG_ADDR_OUT_PORT)
-            if (config != 0x00) {
-                println(
-                    "TCA9534 is not configured as OUTPUT, setting register 0x${"%02x".format(TCA9534_REG_ADDR_CFG)} to 0x00"
-                )
-                currentState = 0x00
-                tca9534Dev.writeRegister(TCA9534_REG_ADDR_OUT_PORT, currentState)
-                tca9534Dev.writeRegister(TCA9534_REG_ADDR_CFG, 0x00)
-            }
-
-            tca9534Dev.run {
+            i2c.run {
                 // bit 8, is pin 1 on the board itself, so set pins in reverse:
                 console {
-                    currentState = setPin(currentState, 8, TCA9534_REG_ADDR_OUT_PORT)
-                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
-                    sleep(500L)
-                    currentState = setPin(currentState, 8, TCA9534_REG_ADDR_OUT_PORT, false)
-                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
-                    sleep(500L)
-                    currentState = setPin(currentState, 7, TCA9534_REG_ADDR_OUT_PORT)
-                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
-                    sleep(500L)
-                    currentState = setPin(currentState, 7, TCA9534_REG_ADDR_OUT_PORT, false)
-                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
-                    sleep(500L)
+                val pixy2 = Pixy2(this@run)
+                    pixy2.setLED(2,200,2)
+                    + "start"
+                    + "version  ${pixy2.getVersion()}"
+                    + "wid  ${pixy2.getFrameWidth()}"
+
+                    while (true) {
+//                        + "version  ${pixy2.getVersion()}"
+
+                        val allFeatures = pixy2.line.allFeatures
+                        if (allFeatures == 0.toByte()) {
+                        +"pixy2.line.vectorCache?.size  ${pixy2.line.vectorCache?.size}"
+                        +"pixy2.line.intersectionCache?.size  ${pixy2.line.intersectionCache?.size}"
+                        }
+//                        +"Setting TCA9534 to new state  ${pixy2.line.intersectionCache}"
+                    }
+
+//                    currentState = setPin(currentState, 8, TCA9534_REG_ADDR_OUT_PORT)
+//                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
+//                    sleep(500L)
+//                    currentState = setPin(currentState, 8, TCA9534_REG_ADDR_OUT_PORT, false)
+//                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
+//                    sleep(500L)
+//                    currentState = setPin(currentState, 7, TCA9534_REG_ADDR_OUT_PORT)
+//                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
+//                    sleep(500L)
+//                    currentState = setPin(currentState, 7, TCA9534_REG_ADDR_OUT_PORT, false)
+//                    +"Setting TCA9534 to new state  ${currentState.binStr()}"
+//                    sleep(500L)
                 }
             }
         }

@@ -11,7 +11,7 @@ group = "com.pi4j"
 version = "0.2"
 
 application {
-    mainClass.set("MinimalExampleKt")
+    mainClass.set("I2CExampleKt")
 }
 
 repositories {
@@ -40,7 +40,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 }
 tasks.withType<Jar> {
     manifest {
-        attributes["Main-Class"] = "MinimalExampleKt"
+        attributes["Main-Class"] = "I2CExampleKt"
     }
 }
 
