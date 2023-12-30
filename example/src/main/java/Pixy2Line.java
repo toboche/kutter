@@ -180,7 +180,7 @@ public class Pixy2Line {
 		int offset, fsize, ftype;
 		byte[] fdata;
 
-		vectors = null;
+//		vectors = null;
 		intersections = null;
 		barcodes = null;
 
@@ -199,8 +199,8 @@ public class Pixy2Line {
 				if (pixy.type == LINE_RESPONSE_GET_FEATURES) {
 					// Parse line response
 					for (offset = 0, res = 0; pixy.length > offset; offset += fsize + 2) {
-						ftype = pixy.buffer[offset];
-						fsize = pixy.buffer[offset + 1];
+						ftype = pixy.buffer[offset] & 0xff;
+						fsize = pixy.buffer[offset + 1] & 0xff;
 						fdata = Arrays.copyOfRange(pixy.buffer, offset + 2, pixy.length);
 						if (ftype == LINE_VECTOR) {
 							// Parse line data
