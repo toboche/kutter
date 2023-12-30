@@ -17,7 +17,7 @@ building
 
 running
 * locally: `scp build/libs/example-0.2-all.jar <username>@<RPiIP>://example-0.2-all.jar`
-* on rpi: `sudo java -jar example-0.2-all.jar` 
+* on rpi: `sudo -E java -jar example-0.2-all.jar` 
   * will not work via ssh for now
   * `sudo` needed because of pi4j
 
