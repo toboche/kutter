@@ -18,11 +18,8 @@ import com.pi4j.io.gpio.digital.PullResistance
 import com.pi4j.ktx.console
 import com.pi4j.ktx.io.digital.*
 import com.pi4j.ktx.pi4jAsync
-import input.StartEntered
-import input.StopEntered
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import input.*
+import kotlinx.coroutines.*
 import machine.FiniteStateMachine
 import output.states.State
 
@@ -76,9 +73,13 @@ fun main() = application {
             Column(Modifier.fillMaxSize(), Arrangement.spacedBy(5.dp)) {
                 Button(modifier = Modifier.align(Alignment.CenterHorizontally),
                     onClick = {
-                        when (currentState.value) {
-                            State.STOP -> finiteStateMachine.transition(input = StartEntered)
-                            else -> finiteStateMachine.transition(input = StopEntered)
+                        CoroutineScope(Dispatchers.Main).launch {
+                            when (currentState.value) {
+                                State.STOP ->
+                                    finiteStateMachine.transition(input = StartEntered)
+
+                                else -> finiteStateMachine.transition(input = StopEntered)
+                            }
                         }
                     }) {
                     Text(
@@ -90,11 +91,37 @@ fun main() = application {
                 }
                 Button(modifier = Modifier.align(Alignment.CenterHorizontally),
                     onClick = {
-                        count.value = 0
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = ContrastSensorHigh)
+                        }
                     }) {
-                    Text("Reset")
+                    Text("Sensor kontrastu HIGH")
                 }
-                Text("State: ${currentState.value}")
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally),
+                    onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = ContrastSensorLow)
+                        }
+                    }) {
+                    Text("Sensor kontrastu LOW")
+                }
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally),
+                    onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = CutterEndDetected)
+                        }
+                    }) {
+                    Text("Koniec wykryty")
+                }
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally),
+                    onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = CutterStartDetected)
+                        }
+                    }) {
+                    Text("Poczatek wykryty")
+                }
+                Text("Stan: ${currentState.value}")
             }
         }
     }

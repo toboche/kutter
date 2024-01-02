@@ -21,9 +21,9 @@ repositories {
 
 dependencies {
     //to run on mac:
-    //    implementation(compose.desktop.currentOs)
+    implementation(compose.desktop.currentOs)
     // to run on rpi:
-    implementation(compose.desktop.linux_arm64)
+//    implementation(compose.desktop.linux_arm64)
     implementation("com.pi4j:pi4j-ktx:2.4.0") // Kotlin DSL
     implementation("com.pi4j:pi4j-core:2.3.0")
     implementation("com.pi4j:pi4j-plugin-raspberrypi:2.3.0")
@@ -35,6 +35,9 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:1.7.32")
     testImplementation(kotlin("test"))
     runtimeOnly("org.jetbrains.skiko:skiko:0.7.90")
+    // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-swing
+    runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.3")
+
 }
 
 compose.desktop {
