@@ -19,19 +19,19 @@ enum class Transition(
     val onTransitionAction: (suspend (finiteStateMachine: FiniteStateMachine) -> Unit)? = null,
 ) {
 
-    BEGIN(
+    Begin(
         State.STOP,
         StartEntered,
         State.FORWARD,
     ),
 
     /** Can be used to "just continue moving forward" if e.g. print mark scan was not successful*/
-    FORCE_CONTINUE(
+    ForceMovingForward(
         null,
         StartEntered,
         State.FORWARD,
     ),
-    STOP(
+    Stop(
         null,
         StopEntered,
         State.STOP,
