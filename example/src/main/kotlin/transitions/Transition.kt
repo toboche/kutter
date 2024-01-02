@@ -1,7 +1,13 @@
 package transitions
 
 import input.*
+import kotlinx.coroutines.delay
+import machine.FiniteStateMachine
 import output.states.State
+
+private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000L
+private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
+private const val LONG_CUTTING_DELAY = 10000L
 
 /**
  * startState - if null, will match any
@@ -10,11 +16,18 @@ enum class Transition(
     val startState: State?,
     val input: Input,
     val destinationState: State,
-    val onTransitionAction: (() -> Unit)? = null,
+    val onTransitionAction: (suspend (finiteStateMachine: FiniteStateMachine) -> Unit)? = null,
 ) {
 
     BEGIN(
         State.STOP,
+        StartEntered,
+        State.FORWARD,
+    ),
+
+    /** Can be used to "just continue moving forward" if e.g. print mark scan was not successful*/
+    FORCE_CONTINUE(
+        null,
         StartEntered,
         State.FORWARD,
     ),
@@ -27,49 +40,62 @@ enum class Transition(
         State.FORWARD,
         ContrastSensorHigh,
         State.FORWARD_FIRST_LINE_STARTED,
-    ) {
-        //TODO timeout
-    },
+        onTransitionAction = goBackToMovingForwardWithPrintMarkDelayAction
+    ),
     FirstCutMarkEnd(
         State.FORWARD_FIRST_LINE_STARTED,
         ContrastSensorLow,
         State.FORWARD_FIRST_LINE_ENDED,
-    ) {
-        //TODO timeout
-    },
+        onTransitionAction = goBackToMovingForwardWithPrintMarkDelayAction
+
+    ),
     SecondCutMarkStart(
         State.FORWARD_FIRST_LINE_ENDED,
         ContrastSensorHigh,
         State.FORWARD_SECOND_LINE_STARTED,
-    ) {
-        //TODO timeout
-    },
+        onTransitionAction = goBackToMovingForwardWithPrintMarkDelayAction
+
+    ),
     CutToEnd(
         State.FORWARD_SECOND_LINE_STARTED,
         ContrastSensorLow,
         State.CUT_TOWARDS_END,
-    ) {
-        //TODO timeout just to be safe
-    },
+        onTransitionAction = { finiteStateMachine ->
+            //something has gone wrong, cutting is taking too much time
+            delay(LONG_CUTTING_DELAY)
+            finiteStateMachine.transition(StopEntered)
+        }
+    ),
     PauseBeforeCuttingToStart(
         State.CUT_TOWARDS_END,
         CutterEndDetected,
         State.PAUSE_BEFORE_CUTS,
-    ) {
-        //TODO timeout to start cutting to start, trigger PauseBeforeStartToCutToStartHasFinished
-    },
+        onTransitionAction = { finiteStateMachine ->
+            delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
+            finiteStateMachine.transition(PauseBeforeStartToCutToStartHasFinished)
+        }
+    ),
     CutToStart(
         State.PAUSE_BEFORE_CUTS,
         PauseBeforeStartToCutToStartHasFinished,
         State.CUT_TOWARDS_START,
-    ) {
-        //TODO timeout just to be safe
-    },
+        onTransitionAction = { finiteStateMachine ->
+            //something has gone wrong, cutting is taking too much time
+            delay(LONG_CUTTING_DELAY)
+            finiteStateMachine.transition(StopEntered)
+        }
+
+    ),
     MoveForwardAfterCuttingFinished(
         State.CUT_TOWARDS_START,
         CutterStartDetected,
         State.FORWARD,
-    ) {
-        //TODO timeout just to be safe
-    },
+    ), ;
+
 }
+
+private val goBackToMovingForwardWithPrintMarkDelayAction: suspend (finiteStateMachine: FiniteStateMachine) -> Unit =
+    { finiteStateMachine ->
+        delay(DEFAULT_PRINT_MARK_SCAN_DELAY)
+        finiteStateMachine.transition(StartEntered)
+    }
