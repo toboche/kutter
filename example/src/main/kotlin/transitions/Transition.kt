@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import machine.FiniteStateMachine
 import output.states.State
 
+//TODO: calibrate these values or make them editable by the user
 private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000L
 private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
 private const val LONG_CUTTING_DELAY = 10000L
@@ -25,7 +26,7 @@ enum class Transition(
         State.FORWARD,
     ),
 
-    /** Can be used to "just continue moving forward" if e.g. print mark scan was not successful*/
+    /** Can be used to "just continue moving forward" if e.g. print mark scan was not successful. */
     ForceMovingForward(
         null,
         StartEntered,
