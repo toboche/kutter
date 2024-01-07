@@ -3,17 +3,12 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 plugins {
     java
     kotlin("jvm") version "1.9.20"
-//    application
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("org.jetbrains.compose") version "1.5.11"
 }
 
-group = "com.pi4j"
+group = "pl.toboche"
 version = "0.2"
-
-//application {
-//    mainClass.set("MinimalExampleKt")
-//}
 
 repositories {
     mavenCentral()

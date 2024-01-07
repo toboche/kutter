@@ -19,12 +19,12 @@ Setup on Raspberry PI 4
 
 ## Building
 
-`gradlew :example:shadowJar`
+`gradlew :kutter:shadowJar`
 
 ## Running
 
-* locally: `scp build/libs/example-0.2-all.jar <username>@<RPiIP>://example-0.2-all.jar`
-* on rpi: `sudo -E java -jar example-0.2-all.jar`
+* locally: `scp build/libs/kutter-0.2-all.jar <username>@<RPiIP>://kutter-0.2-all.jar`
+* on rpi: `sudo -E java -jar kutter-0.2-all.jar`
     * will not work via ssh for now as it requires an X Window to be available
     * `sudo` needed because of pi4j
 
