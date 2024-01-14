@@ -28,6 +28,8 @@ import output.states.MainMotorState
 import output.states.State
 
 private const val CONTRAST_SENSOR_BCM_PIN = 17
+private const val START_SENSOR_BCM_PIN = 10
+private const val END_SENSOR_BCM_PIN = 9
 
 private const val MAIN_MOTOR_PIN_1 = 27
 private const val MAIN_MOTOR_PIN_2 = 22
@@ -41,6 +43,8 @@ fun main() = application {
         pi4jAsync {
             console {
                 subscribeToContrastSensorInput()
+                subscribeToStartSensorInput()
+                subscribeToEndSensorInput()
 
                 val mainMotorPin1 = createMotorGpioOutput(MAIN_MOTOR_PIN_1)
                 val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2)
@@ -164,5 +168,36 @@ private fun Context.subscribeToContrastSensorInput() {
         CoroutineScope(Dispatchers.Main).launch {
             finiteStateMachine.transition(input = ContrastSensorHigh)
         }
+    }
+}
+
+private fun Context.subscribeToStartSensorInput() {
+    digitalInput(START_SENSOR_BCM_PIN) {
+        id("START_SENSOR_BCM_PIN")
+        name("START_SENSOR_BCM_PIN")
+        pull(PullResistance.PULL_UP)
+        debounce(3000L)
+        piGpioProvider()
+    }.onLow {
+    }.onHigh {
+        CoroutineScope(Dispatchers.Main).launch {
+            finiteStateMachine.transition(input = CutterStartDetected)
+        }
+    }
+}
+
+private fun Context.subscribeToEndSensorInput() {
+    digitalInput(END_SENSOR_BCM_PIN) {
+        id("END_SENSOR_BCM_PIN")
+        name("END_SENSOR_BCM_PIN")
+        pull(PullResistance.PULL_UP)
+        debounce(3000L)
+        piGpioProvider()
+    }.onLow {
+        println("low")
+        CoroutineScope(Dispatchers.Main).launch {
+            finiteStateMachine.transition(input = CutterEndDetected)
+        }
+    }.onHigh {
     }
 }
