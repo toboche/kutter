@@ -100,6 +100,12 @@ fun main() = application {
     ) {
         MaterialTheme {
             val currentState = finiteStateMachine.currentState.collectAsState()
+            val previousSensorReads =finiteStateMachine.previousSensorReads.collectAsState()
+            val previousStateSensorHigh = finiteStateMachine.previousStateSensorHigh.collectAsState()
+            val previousStateSensorLow = finiteStateMachine.previousStateSensorLow.collectAsState()
+            val calibrationMode = finiteStateMachine.calibrationMode.collectAsState()
+            val averageTimeBetweenContrastStateTransitions = finiteStateMachine.averageTimeBetweenContrastStateTransitions.collectAsState()
+            val accuracy = finiteStateMachine.accuracy.collectAsState()
 
             Column(Modifier.fillMaxSize(), Arrangement.spacedBy(5.dp)) {
                 Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
@@ -150,13 +156,26 @@ fun main() = application {
                         finiteStateMachine.transition(input = CalibrationEntered)
                     }
                 }) {
-                    Text("Rozpocznij kalibracje")
+                    Text("Rozpocznij kalibrację")
                 }
                 Text("Stan: ${currentState.value}")
+                Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value}")
+                Text("Sensor w stanie wysokim: ${formatBool(previousStateSensorHigh)}")
+                Text("Sensor w stanie niskim: ${formatBool(previousStateSensorLow)}")
+                Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
+                Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
+                Text("Dokladność: ${accuracy.value}")
             }
         }
     }
 }
+
+private fun formatBool(previousStateSensorHigh: androidx.compose.runtime.State<Boolean>) =
+    if (previousStateSensorHigh.value) {
+        "tak"
+    } else {
+        "nie"
+    }
 
 private fun Context.createMotorGpioOutput(gpioNumber: Int) = digitalOutput(gpioNumber) {
     id(gpioNumber.toString())

@@ -10,37 +10,43 @@ import java.time.Instant
 class FiniteStateMachine {
     private val _currentState = MutableStateFlow(State.STOP)
     val currentState = _currentState.asStateFlow()
-    private var actionJob: Job? = null
-    private val previousSensorReads = mutableListOf<Pair<Instant, Boolean>>() //time, sensor state
-    private var previousStateSensorHigh = false
-    private var previousStateSensorLow = false
-    private var calibrationMode = false
-    private var averageTimeBetweenContrastStateTransitions = DEFAULT_PRINT_MARK_SCAN_DELAY
-    private var accuracy = 0.2
+    private var _actionJob = MutableStateFlow<Job?>(null)
+    val actionJob = _actionJob.asStateFlow()
+    private val _previousSensorReads = MutableStateFlow(listOf<Pair<Instant, Boolean>>()) //time, sensor state
+    val previousSensorReads = _previousSensorReads.asStateFlow()
+    private var _previousStateSensorHigh = MutableStateFlow(false)
+    val previousStateSensorHigh = _previousStateSensorHigh.asStateFlow()
+    private var _previousStateSensorLow = MutableStateFlow(false)
+    val previousStateSensorLow = _previousStateSensorLow.asStateFlow()
+    private var _calibrationMode = MutableStateFlow(false)
+    val calibrationMode = _calibrationMode.asStateFlow()
+    private var _averageTimeBetweenContrastStateTransitions = MutableStateFlow(DEFAULT_PRINT_MARK_SCAN_DELAY)
+    val averageTimeBetweenContrastStateTransitions = _averageTimeBetweenContrastStateTransitions.asStateFlow()
+    private var _accuracy = MutableStateFlow(0.2)
+    val accuracy = _accuracy.asStateFlow()
     suspend fun transition(input: Input) {
-        if (calibrationMode) {
+        if (_calibrationMode.value) {
             handleInputForCalibrationMode(input)
 
         } else {
             handleInputForNonCalibrationMode(input)
         }
-        previousStateSensorHigh = input == ContrastSensorHigh
-        previousStateSensorLow = input == ContrastSensorLow
+        _previousStateSensorHigh.value = input == ContrastSensorHigh
+        _previousStateSensorLow.value = input == ContrastSensorLow
     }
 
     private fun handleInputForCalibrationMode(input: Input) {
         when (input) {
             CalibrationEntered -> {}
             ContrastSensorHigh -> {
-                if (previousStateSensorLow) {
-                    previousSensorReads.add(
-                        Instant.now() to true
-                    )
+                if (_previousStateSensorLow.value) {
+                    _previousSensorReads.value = _previousSensorReads.value + (Instant.now() to true)
                 }
             }
 
             ContrastSensorLow -> {
-                if (previousStateSensorHigh || !previousStateSensorLow) previousSensorReads.add(Instant.now() to false)
+                if (_previousStateSensorHigh.value || !_previousStateSensorLow.value) _previousSensorReads.value =
+                    _previousSensorReads.value + (Instant.now() to false)
                 onLowDetectedInCalibrationMode()
             }
 
@@ -56,23 +62,24 @@ class FiniteStateMachine {
     private fun handleInputForNonCalibrationMode(input: Input) {
         when (input) {
             ContrastSensorHigh -> {
-                if (previousStateSensorLow) {
-                    previousSensorReads.add(
-                        Instant.now() to true
-                    )
+                if (_previousStateSensorLow.value) {
+                    _previousSensorReads.value = _previousSensorReads.value + (
+                            Instant.now() to true
+                            )
                 }
             }
 
             ContrastSensorLow -> {
-                if (previousStateSensorHigh || !previousStateSensorLow) previousSensorReads.add(Instant.now() to false)
+                if (_previousStateSensorHigh.value || !_previousStateSensorLow.value) _previousSensorReads.value =
+                    _previousSensorReads.value + (Instant.now() to false)
                 onLowDetected()
             }
 
             CutterEndDetected -> {
-                actionJob = CoroutineScope(Dispatchers.Main).launch {
+                _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                     delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
                     _currentState.value = State.CUT_TOWARDS_START
-                    delay(LONG_CUTTING_DELAY)
+                    delay(LONG_CUTTING_DELAY.toLong())
                     if (_currentState.value == State.CUT_TOWARDS_START) {
                         _currentState.value = State.STOP
                     }
@@ -86,18 +93,16 @@ class FiniteStateMachine {
             StartEntered -> _currentState.value = State.FORWARD
             StopEntered -> {
                 _currentState.value = State.STOP
-                previousSensorReads.clear()
-                previousStateSensorLow = false
-                previousStateSensorHigh = false
+                _previousSensorReads.value = emptyList()
             }
 
             CalibrationEntered -> {
-                calibrationMode = true
+                _calibrationMode.value = true
                 _currentState.value = State.FORWARD
-                actionJob?.cancel()
-                actionJob = CoroutineScope(Dispatchers.Main).launch {
-                    delay(CALIBRATION_DELAY)
-                    if (_currentState.value == State.FORWARD && calibrationMode) {
+                _actionJob.value?.cancel()
+                _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
+                    delay(CALIBRATION_DELAY.toLong())
+                    if (_currentState.value == State.FORWARD && _calibrationMode.value) {
                         _currentState.value = State.STOP
                     }
                 }
@@ -112,29 +117,30 @@ class FiniteStateMachine {
         //
         //l   *-----         --------        ---------
         //    t0    t1       t2     t3      t4     t5
-        val lowerBoundForTimeBetweenSwitches = averageTimeBetweenContrastStateTransitions * (1 - accuracy).toLong()
-        val upperBoundForTimeBetweenSwitches = averageTimeBetweenContrastStateTransitions * (1 + accuracy).toLong()
-        if (previousSensorReads.count() < 5) {
+        val lowerBoundForTimeBetweenSwitches =
+            _averageTimeBetweenContrastStateTransitions.value * (1 - _accuracy.value)
+        val upperBoundForTimeBetweenSwitches =
+            _averageTimeBetweenContrastStateTransitions.value * (1 + _accuracy.value)
+        if (_previousSensorReads.value.count() < 5) {
             return
         }
-        if (previousSensorReads.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
+        if (_previousSensorReads.value.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
             return
         }
-        val shouldStartCutting = previousSensorReads.takeLast(5)
+        val shouldStartCutting = _previousSensorReads.value.takeLast(5)
             .drop(1)
             .windowed(2, 1, false)
             .map { it[0] to it[1] }
             .map { (t1, t2) -> t2.first.toEpochMilli() - t1.first.toEpochMilli() }
-            .all { timeBetween -> timeBetween in lowerBoundForTimeBetweenSwitches..upperBoundForTimeBetweenSwitches }
+            .all { timeBetween -> timeBetween.toDouble() in lowerBoundForTimeBetweenSwitches..upperBoundForTimeBetweenSwitches }
         if (!shouldStartCutting) {
-            previousSensorReads.removeAt(0)
-            previousSensorReads.removeAt(1)
+            _previousSensorReads.value = _previousSensorReads.value.drop(2)
         } else {
-            previousSensorReads.clear()
+            _previousSensorReads.value = emptyList()
             _currentState.value = State.CUT_TOWARDS_END
-            actionJob?.cancel()
-            actionJob = CoroutineScope(Dispatchers.Main).launch {
-                delay(LONG_CUTTING_DELAY)
+            _actionJob.value?.cancel()
+            _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
+                delay(LONG_CUTTING_DELAY.toLong())
                 if (_currentState.value == State.CUT_TOWARDS_END) {
                     _currentState.value = State.STOP
                 }
@@ -148,30 +154,30 @@ class FiniteStateMachine {
         //
         //l   *-----         --------        ---------
         //    t0    t1       t2     t3      t4     t5
-        if (previousSensorReads.count() < 5) {
+        if (_previousSensorReads.value.count() < 5) {
             return
         }
-        if (previousSensorReads.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
+        if (_previousSensorReads.value.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
             return
         }
-        averageTimeBetweenContrastStateTransitions = previousSensorReads.takeLast(5)
+        _averageTimeBetweenContrastStateTransitions.value = (_previousSensorReads.value.takeLast(5)
             .drop(1)
             .windowed(2, 1, false)
             .map { it[0] to it[1] }
             .map { (t1, t2) -> t2.first.toEpochMilli() - t1.first.toEpochMilli() }
-            .average().toLong()
-        previousSensorReads.clear()
+            .average() / 4.toDouble())
+        _previousSensorReads.value = emptyList()
         _currentState.value = State.STOP
-        calibrationMode = false
-        actionJob?.cancel()
+        _calibrationMode.value = false
+        _actionJob.value?.cancel()
     }
 
 
     companion object {
         //TODO: calibrate these values or make them editable by the user
-        private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000L
+        private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000.toDouble()
         private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
-        private const val LONG_CUTTING_DELAY = 10000L
-        private const val CALIBRATION_DELAY = 10000L
+        private const val LONG_CUTTING_DELAY = 10000.toDouble()
+        private const val CALIBRATION_DELAY = 10000.toDouble()
     }
 }
