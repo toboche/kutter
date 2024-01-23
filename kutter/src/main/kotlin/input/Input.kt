@@ -12,5 +12,3 @@ data object CutterStartDetected : Input()
 data object StartEntered: Input()
 
 data object StopEntered: Input()
-
-data object PauseBeforeStartToCutToStartHasFinished: Input()

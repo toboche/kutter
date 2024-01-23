@@ -25,11 +25,12 @@ import kotlinx.coroutines.launch
 import machine.FiniteStateMachine
 import output.states.CutterMotorState
 import output.states.MainMotorState
+import output.states.OutputState
 import output.states.State
 
 private const val CONTRAST_SENSOR_BCM_PIN = 17
 private const val START_SENSOR_BCM_PIN = 10
-private const val END_SENSOR_BCM_PIN = 9
+private const val END_SENSOR_BCM_PIN = 11
 
 private const val MAIN_MOTOR_PIN_1 = 27
 private const val MAIN_MOTOR_PIN_2 = 22
@@ -50,8 +51,13 @@ fun main() = application {
                 val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2)
                 val cutterMotorPin1 = createMotorGpioOutput(CUTTER_MOTOR_PIN_1)
                 val cutterMotorPin2 = createMotorGpioOutput(CUTTER_MOTOR_PIN_2)
+                var previousState: OutputState? = null
                 while (true) {
                     val state = finiteStateMachine.currentState.value.outputState
+                    if (previousState == state) {
+                        continue
+                    }
+                    previousState = state
                     when (state.mainMotorState) {
                         MainMotorState.NONE -> {
                             mainMotorPin1.low()
