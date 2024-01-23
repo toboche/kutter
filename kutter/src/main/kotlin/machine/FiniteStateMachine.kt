@@ -10,18 +10,11 @@ import java.time.Instant
 class FiniteStateMachine {
     private val _currentState = MutableStateFlow(State.STOP)
     val currentState = _currentState.asStateFlow()
-    var actionJob: Job? = null
+    private var actionJob: Job? = null
+    private val previousSensorReads = mutableListOf<Pair<Instant, Boolean>>() //time, sensor state
+    private var previousStateSensorHigh = false
+    private var previousStateSensorLow = false
 
-    companion object {
-        //TODO: calibrate these values or make them editable by the user
-        private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000L
-        private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
-        private const val LONG_CUTTING_DELAY = 10000L
-    }
-
-    val previousSensorReads = mutableListOf<Pair<Instant, Boolean>>() //time, sensor state
-    var previousStateSensorHigh = false
-    var previousStateSensorLow = false
     suspend fun transition(input: Input) {
         when (input) {
             ContrastSensorHigh -> {
@@ -98,5 +91,12 @@ class FiniteStateMachine {
                 }
             }
         }
+    }
+
+    companion object {
+        //TODO: calibrate these values or make them editable by the user
+        private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000L
+        private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
+        private const val LONG_CUTTING_DELAY = 10000L
     }
 }
