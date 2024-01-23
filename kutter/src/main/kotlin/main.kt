@@ -101,8 +101,7 @@ fun main() = application {
         MaterialTheme {
             val currentState = finiteStateMachine.currentState.collectAsState()
             val previousSensorReads =finiteStateMachine.previousSensorReads.collectAsState()
-            val previousStateSensorHigh = finiteStateMachine.previousStateSensorHigh.collectAsState()
-            val previousStateSensorLow = finiteStateMachine.previousStateSensorLow.collectAsState()
+            val previousStateSensor = finiteStateMachine.previousStateSensor.collectAsState()
             val calibrationMode = finiteStateMachine.calibrationMode.collectAsState()
             val averageTimeBetweenContrastStateTransitions = finiteStateMachine.averageTimeBetweenContrastStateTransitions.collectAsState()
             val accuracy = finiteStateMachine.accuracy.collectAsState()
@@ -160,8 +159,7 @@ fun main() = application {
                 }
                 Text("Stan: ${currentState.value}")
                 Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value}")
-                Text("Sensor w stanie wysokim: ${formatBool(previousStateSensorHigh)}")
-                Text("Sensor w stanie niskim: ${formatBool(previousStateSensorLow)}")
+                Text("Sensor w stanie niskim: ${if(previousStateSensor.value){"wysoki"} else "niski"}}")
                 Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
                 Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
                 Text("Dokladność: ${accuracy.value}")
