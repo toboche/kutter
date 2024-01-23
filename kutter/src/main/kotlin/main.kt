@@ -145,6 +145,13 @@ fun main() = application {
                 }) {
                     Text("Poczatek wykryty")
                 }
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        finiteStateMachine.transition(input = CalibrationEntered)
+                    }
+                }) {
+                    Text("Rozpocznij kalibracje")
+                }
                 Text("Stan: ${currentState.value}")
             }
         }
