@@ -1,12 +1,14 @@
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -39,7 +41,7 @@ private const val CUTTER_MOTOR_PIN_2 = 24
 
 private val finiteStateMachine = FiniteStateMachine()
 
-fun main() = application {
+fun main() = application() {
     GlobalScope.launch {
         pi4jAsync {
             console {
@@ -95,15 +97,36 @@ fun main() = application {
         }
     }
 
+    val keyboardKeyMappings = mapOf(
+        Key.DirectionLeft to MoveTowardsEndEntered,
+        Key.DirectionRight to MoveTowardsStartEntered,
+        Key.DirectionDown to MoveForwardEntered,
+        Key.DirectionUp to MoveBackwardsEntered,
+        Key.Spacebar to StopEntered,
+        Key.Enter to StartEntered,
+    )
+
     Window(
-        onCloseRequest = ::exitApplication, title = "Kutter", state = rememberWindowState()
+        onCloseRequest = ::exitApplication, title = "Kutter", state = rememberWindowState(height = 1000.dp),
+        onKeyEvent = {
+            if (
+                keyboardKeyMappings.containsKey(it.key) &&
+                it.type == KeyEventType.KeyDown
+            ) {
+                finiteStateMachine.transition(keyboardKeyMappings[it.key]!!)
+                true
+            } else {
+                false
+            }
+        }
     ) {
         MaterialTheme {
             val currentState = finiteStateMachine.currentState.collectAsState()
-            val previousSensorReads =finiteStateMachine.previousSensorReads.collectAsState()
+            val previousSensorReads = finiteStateMachine.previousSensorReads.collectAsState()
             val previousStateSensor = finiteStateMachine.previousStateSensor.collectAsState()
             val calibrationMode = finiteStateMachine.calibrationMode.collectAsState()
-            val averageTimeBetweenContrastStateTransitions = finiteStateMachine.averageTimeBetweenContrastStateTransitions.collectAsState()
+            val averageTimeBetweenContrastStateTransitions =
+                finiteStateMachine.averageTimeBetweenContrastStateTransitions.collectAsState()
             val accuracy = finiteStateMachine.accuracy.collectAsState()
 
             Column(Modifier.fillMaxSize(), Arrangement.spacedBy(5.dp)) {
@@ -118,7 +141,7 @@ fun main() = application {
                     Text(
                         when (currentState.value) {
                             State.STOP -> "Start"
-                            else -> "Stop"
+                            else -> "Stop (spacja)"
                         }
                     )
                 }
@@ -157,9 +180,50 @@ fun main() = application {
                 }) {
                     Text("Rozpocznij kalibrację")
                 }
+                Spacer(modifier = Modifier.size(30.dp))
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        finiteStateMachine.transition(input = MoveBackwardsEntered)
+                    }
+                }) {
+                    Text("Odwijanie do tylu⬆️")
+                }
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Button(onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = MoveTowardsEndEntered)
+                        }
+                    }) {
+                        Text("Karetka do do konca⬅️")
+                    }
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Button(onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = MoveTowardsStartEntered)
+                        }
+                    }) {
+                        Text("➡️Karetka do poczatku")
+                    }
+                }
+                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        finiteStateMachine.transition(input = MoveForwardEntered)
+                    }
+                }) {
+                    Text("Odwijanie do przodu⬇️")
+                }
                 Text("Stan: ${currentState.value}")
-                Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value}")
-                Text("Sensor w stanie niskim: ${if(previousStateSensor.value){"wysoki"} else "niski"}}")
+                Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value.map { "\n $it" }}")
+                Text(
+                    "Sensor w stanie niskim: ${
+                        if (previousStateSensor.value) {
+                            "wysoki"
+                        } else "niski"
+                    }}"
+                )
                 Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
                 Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
                 Text("Dokladność: ${accuracy.value}")
@@ -188,16 +252,12 @@ private fun Context.subscribeToContrastSensorInput() {
         id("CONTRAST_SENSOR_BCM_PIN")
         name("CONTRAST_SENSOR_BCM_PIN")
         pull(PullResistance.PULL_DOWN)
-        debounce(3000L)
+//        debounce(3L)
         piGpioProvider()
     }.onLow {
-        CoroutineScope(Dispatchers.Main).launch {
-            finiteStateMachine.transition(input = ContrastSensorLow)
-        }
+        finiteStateMachine.transition(input = ContrastSensorLow)
     }.onHigh {
-        CoroutineScope(Dispatchers.Main).launch {
-            finiteStateMachine.transition(input = ContrastSensorHigh)
-        }
+        finiteStateMachine.transition(input = ContrastSensorHigh)
     }
 }
 
@@ -224,7 +284,6 @@ private fun Context.subscribeToEndSensorInput() {
         debounce(3000L)
         piGpioProvider()
     }.onLow {
-        println("low")
         CoroutineScope(Dispatchers.Main).launch {
             finiteStateMachine.transition(input = CutterEndDetected)
         }
