@@ -269,10 +269,10 @@ private fun Context.subscribeToStartSensorInput() {
         debounce(3000L)
         piGpioProvider()
     }.onLow {
-    }.onHigh {
         CoroutineScope(Dispatchers.Main).launch {
             finiteStateMachine.transition(input = CutterStartDetected)
         }
+    }.onHigh {
     }
 }
 

@@ -16,9 +16,9 @@ repositories {
 
 dependencies {
     //to run on mac:
-    implementation(compose.desktop.currentOs)
+//    implementation(compose.desktop.currentOs)
     // to run on rpi:
-//    implementation(compose.desktop.linux_arm64)
+    implementation(compose.desktop.linux_arm64)
     implementation("com.pi4j:pi4j-ktx:2.4.0") // Kotlin DSL
     implementation("com.pi4j:pi4j-core:2.3.0")
     implementation("com.pi4j:pi4j-plugin-raspberrypi:2.3.0")
