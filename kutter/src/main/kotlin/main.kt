@@ -103,7 +103,8 @@ fun main() = application() {
         Key.DirectionDown to MoveForwardEntered,
         Key.DirectionUp to MoveBackwardsEntered,
         Key.Spacebar to StopEntered,
-        Key.Enter to StartEntered,
+        Key.S to StartEntered,
+        Key.K to CalibrationEntered,
     )
 
     Window(
