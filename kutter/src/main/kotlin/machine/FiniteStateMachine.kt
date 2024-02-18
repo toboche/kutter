@@ -287,7 +287,7 @@ class FiniteStateMachine {
             _cuttingState.value = CuttingState.GoingBackToCutTheTopPartOfTheMark
             val averageTimeBetweenContrastTransitions =
                 _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 5
+            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 3
             _currentState.value = State.STOP
             _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                 delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
@@ -305,11 +305,11 @@ class FiniteStateMachine {
         else if (_cuttingState.value == CuttingState.GoingForwardToCutTheLowPartOfTheMark){
             val averageTimeBetweenContrastTransitions =
                 _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 7
+            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 2
             _currentState.value = State.STOP
             _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                 delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-                _currentState.value = State.BACKWARD
+                _currentState.value = State.FORWARD
                 delay((timeToGoDownBeforeCut / 1000).toLong())
                 _currentState.value = State.CUT_TOWARDS_END
                 _cuttingState.value = CuttingState.None

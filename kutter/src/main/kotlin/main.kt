@@ -38,6 +38,8 @@ private const val MAIN_MOTOR_PIN_1 = 27
 private const val MAIN_MOTOR_PIN_2 = 22
 private const val CUTTER_MOTOR_PIN_1 = 23
 private const val CUTTER_MOTOR_PIN_2 = 24
+//private const val ACTUATOR_PIN_1 = 9 // do nt use 9, it fried
+private const val ACTUATOR_PIN_1 = 25
 
 private val finiteStateMachine = FiniteStateMachine()
 
@@ -49,10 +51,11 @@ fun main() = application() {
                 subscribeToStartSensorInput()
                 subscribeToEndSensorInput()
 
-                val mainMotorPin1 = createMotorGpioOutput(MAIN_MOTOR_PIN_1)
-                val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2)
-                val cutterMotorPin1 = createMotorGpioOutput(CUTTER_MOTOR_PIN_1)
-                val cutterMotorPin2 = createMotorGpioOutput(CUTTER_MOTOR_PIN_2)
+                val mainMotorPin1 = createMotorGpioOutput(MAIN_MOTOR_PIN_1, DigitalState.LOW)
+                val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2, DigitalState.LOW)
+                val cutterMotorPin1 = createMotorGpioOutput(CUTTER_MOTOR_PIN_1, DigitalState.LOW)
+                val cutterMotorPin2 = createMotorGpioOutput(CUTTER_MOTOR_PIN_2, DigitalState.LOW)
+                val actuatorPin = createMotorGpioOutput(ACTUATOR_PIN_1, DigitalState.HIGH)
                 var previousState: OutputState? = null
                 while (true) {
                     val state = finiteStateMachine.currentState.value.outputState
@@ -80,16 +83,19 @@ fun main() = application() {
                         CutterMotorState.LEFT -> {
                             cutterMotorPin1.high()
                             cutterMotorPin2.low()
+                            actuatorPin.low()
                         }
 
                         CutterMotorState.RIGHT -> {
                             cutterMotorPin1.low()
                             cutterMotorPin2.high()
+                            actuatorPin.low()
                         }
 
                         CutterMotorState.NONE -> {
                             cutterMotorPin1.low()
                             cutterMotorPin2.low()
+                            actuatorPin.high()
                         }
                     }
                 }
@@ -240,11 +246,11 @@ private fun formatBool(previousStateSensorHigh: androidx.compose.runtime.State<B
         "nie"
     }
 
-private fun Context.createMotorGpioOutput(gpioNumber: Int) = digitalOutput(gpioNumber) {
+private fun Context.createMotorGpioOutput(gpioNumber: Int, defaultState: DigitalState) = digitalOutput(gpioNumber) {
     id(gpioNumber.toString())
     name(gpioNumber.toString())
-    shutdown(DigitalState.LOW)
-    initial(DigitalState.LOW)
+    shutdown(defaultState)
+    initial(defaultState)
     piGpioProvider()
 }
 
