@@ -34,8 +34,7 @@ class FiniteStateMachine {
     var _cuttingState = MutableStateFlow(CuttingState.None)
     enum class CuttingState {
         None,
-        GoingBackToCutTheTopPartOfTheMark,
-        GoingForwardToCutTheLowPartOfTheMark,
+        Cutting,
     }
     fun transition(input: Input) {
         if (input == ContrastSensorLow) {
@@ -151,7 +150,6 @@ class FiniteStateMachine {
         when (input) {
             ContrastSensorHigh -> {
                 _previousSensorReads.value = _previousSensorReads.value + (Instant.now() to true)
-
             }
 
             ContrastSensorLow -> {
@@ -164,15 +162,22 @@ class FiniteStateMachine {
                     _currentState.value = State.STOP
                     return
                 }
-                _currentState.value = State.PAUSE_BEFORE_CUTS
+                val averageTimeBetweenContrastTransitions =
+                    _averageTimeBetweenContrastStateTransitions.value.toList().average()
+                val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 7
+                _currentState.value = State.STOP
                 _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                     delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
+                    _currentState.value = State.FORWARD
+                    delay((timeToGoDownBeforeCut / 1000).toLong())
                     _currentState.value = State.CUT_TOWARDS_START
+                    _cuttingState.value = CuttingState.None
                     delay(LONG_CUTTING_DELAY.toLong())
                     if (_currentState.value == State.CUT_TOWARDS_START) {
                         _currentState.value = State.STOP
                     }
                 }
+
             }
 
             CutterStartDetected -> {
@@ -243,7 +248,7 @@ class FiniteStateMachine {
         //l   *-----         --------        ---------
         //    t0    t1       t2     t3      t4     t5
 
-        if (_cuttingState.value == CuttingState.GoingBackToCutTheTopPartOfTheMark) {
+        if (_cuttingState.value == CuttingState.Cutting) {
             return
         }
         if (_previousSensorReads.value.count() < 5) {
@@ -284,17 +289,16 @@ class FiniteStateMachine {
 
         if (_cuttingState.value == CuttingState.None) {
 
-            _cuttingState.value = CuttingState.GoingBackToCutTheTopPartOfTheMark
+            _cuttingState.value = CuttingState.Cutting
             val averageTimeBetweenContrastTransitions =
                 _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 3
+            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 5
             _currentState.value = State.STOP
             _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                 delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
                 _currentState.value = State.BACKWARD
                 delay((timeToGoDownBeforeCut / 1000).toLong())
                 _currentState.value = State.CUT_TOWARDS_END
-                _cuttingState.value = CuttingState.GoingForwardToCutTheLowPartOfTheMark
                 delay(LONG_CUTTING_DELAY.toLong())
                 if (_currentState.value == State.CUT_TOWARDS_END) {
                     _currentState.value = State.STOP
@@ -302,23 +306,23 @@ class FiniteStateMachine {
             }
         }
 
-        else if (_cuttingState.value == CuttingState.GoingForwardToCutTheLowPartOfTheMark){
-            val averageTimeBetweenContrastTransitions =
-                _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 2
-            _currentState.value = State.STOP
-            _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
-                delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-                _currentState.value = State.FORWARD
-                delay((timeToGoDownBeforeCut / 1000).toLong())
-                _currentState.value = State.CUT_TOWARDS_END
-                _cuttingState.value = CuttingState.None
-                delay(LONG_CUTTING_DELAY.toLong())
-                if (_currentState.value == State.CUT_TOWARDS_END) {
-                    _currentState.value = State.STOP
-                }
-            }
-        }
+//        else if (_cuttingState.value == CuttingState.GoingForwardToCutTheLowPartOfTheMark){
+//            val averageTimeBetweenContrastTransitions =
+//                _averageTimeBetweenContrastStateTransitions.value.toList().average()
+//            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 2
+//            _currentState.value = State.STOP
+//            _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
+//                delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
+//                _currentState.value = State.FORWARD
+//                delay((timeToGoDownBeforeCut / 1000).toLong())
+//                _currentState.value = State.CUT_TOWARDS_END
+//                _cuttingState.value = CuttingState.None
+//                delay(LONG_CUTTING_DELAY.toLong())
+//                if (_currentState.value == State.CUT_TOWARDS_END) {
+//                    _currentState.value = State.STOP
+//                }
+//            }
+//        }
     }
 
     private fun onLowDetectedInCalibrationMode() {
