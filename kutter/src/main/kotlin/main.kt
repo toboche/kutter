@@ -136,104 +136,108 @@ fun main() = application() {
                 finiteStateMachine.averageTimeBetweenContrastStateTransitions.collectAsState()
             val accuracy = finiteStateMachine.accuracy.collectAsState()
 
-            Column(Modifier.fillMaxSize(), Arrangement.spacedBy(5.dp)) {
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        when (currentState.value) {
-                            State.STOP -> finiteStateMachine.transition(input = StartEntered)
-                            else -> finiteStateMachine.transition(input = StopEntered)
+            Row(Modifier.fillMaxSize(), Arrangement.spacedBy(5.dp)) {
+                Column {
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            when (currentState.value) {
+                                State.STOP -> finiteStateMachine.transition(input = StartEntered)
+                                else -> finiteStateMachine.transition(input = StopEntered)
+                            }
+                        }
+                    }) {
+                        Text(
+                            when (currentState.value) {
+                                State.STOP -> "Start"
+                                else -> "Stop (spacja)"
+                            }
+                        )
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = ContrastSensorHigh)
+                        }
+                    }) {
+                        Text("Sensor kontrastu HIGH")
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = ContrastSensorLow)
+                        }
+                    }) {
+                        Text("Sensor kontrastu LOW")
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = CutterEndDetected)
+                        }
+                    }) {
+                        Text("Koniec wykryty")
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = CutterStartDetected)
+                        }
+                    }) {
+                        Text("Poczatek wykryty")
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = CalibrationEntered)
+                        }
+                    }) {
+                        Text("Rozpocznij kalibrację")
+                    }
+                }
+                Column {
+                    Spacer(modifier = Modifier.size(30.dp))
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = MoveBackwardsEntered)
+                        }
+                    }) {
+                        Text("Odwijanie do tylu⬆️")
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Button(onClick = {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                finiteStateMachine.transition(input = MoveTowardsEndEntered)
+                            }
+                        }) {
+                            Text("Karetka do do konca⬅️")
+                        }
+                        Spacer(modifier = Modifier.size(10.dp))
+                        Button(onClick = {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                finiteStateMachine.transition(input = MoveTowardsStartEntered)
+                            }
+                        }) {
+                            Text("➡️Karetka do poczatku")
                         }
                     }
-                }) {
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = MoveForwardEntered)
+                        }
+                    }) {
+                        Text("Odwijanie do przodu⬇️")
+                    }
+                    Text("Stan: ${currentState.value}")
+                    Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value.map { "\n $it" }}")
                     Text(
-                        when (currentState.value) {
-                            State.STOP -> "Start"
-                            else -> "Stop (spacja)"
-                        }
+                        "Sensor w stanie niskim: ${
+                            if (previousStateSensor.value) {
+                                "wysoki"
+                            } else "niski"
+                        }}"
                     )
+                    Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
+                    Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
+                    Text("Dokladność: ${accuracy.value}")
                 }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = ContrastSensorHigh)
-                    }
-                }) {
-                    Text("Sensor kontrastu HIGH")
-                }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = ContrastSensorLow)
-                    }
-                }) {
-                    Text("Sensor kontrastu LOW")
-                }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = CutterEndDetected)
-                    }
-                }) {
-                    Text("Koniec wykryty")
-                }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = CutterStartDetected)
-                    }
-                }) {
-                    Text("Poczatek wykryty")
-                }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = CalibrationEntered)
-                    }
-                }) {
-                    Text("Rozpocznij kalibrację")
-                }
-                Spacer(modifier = Modifier.size(30.dp))
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = MoveBackwardsEntered)
-                    }
-                }) {
-                    Text("Odwijanie do tylu⬆️")
-                }
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Button(onClick = {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            finiteStateMachine.transition(input = MoveTowardsEndEntered)
-                        }
-                    }) {
-                        Text("Karetka do do konca⬅️")
-                    }
-                    Spacer(modifier = Modifier.size(10.dp))
-                    Button(onClick = {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            finiteStateMachine.transition(input = MoveTowardsStartEntered)
-                        }
-                    }) {
-                        Text("➡️Karetka do poczatku")
-                    }
-                }
-                Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
-                    CoroutineScope(Dispatchers.Main).launch {
-                        finiteStateMachine.transition(input = MoveForwardEntered)
-                    }
-                }) {
-                    Text("Odwijanie do przodu⬇️")
-                }
-                Text("Stan: ${currentState.value}")
-                Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value.map { "\n $it" }}")
-                Text(
-                    "Sensor w stanie niskim: ${
-                        if (previousStateSensor.value) {
-                            "wysoki"
-                        } else "niski"
-                    }}"
-                )
-                Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
-                Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
-                Text("Dokladność: ${accuracy.value}")
             }
         }
     }

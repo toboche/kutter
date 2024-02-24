@@ -189,6 +189,8 @@ class FiniteStateMachine {
             }
 
             StartEntered -> {
+                _cuttingState.value = CuttingState.None
+                _previousSensorReads.value = emptyList()
                 moveForwardReadingCurrentSensorState()
             }
 
@@ -292,11 +294,11 @@ class FiniteStateMachine {
             _cuttingState.value = CuttingState.Cutting
             val averageTimeBetweenContrastTransitions =
                 _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 5
+            val timeToGoDownBeforeCut = -(averageTimeBetweenContrastTransitions * 5) + (DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE * averageTimeBetweenContrastTransitions)
             _currentState.value = State.STOP
             _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
                 delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-                _currentState.value = State.BACKWARD
+                _currentState.value = State.FORWARD
                 delay((timeToGoDownBeforeCut / 1000).toLong())
                 _currentState.value = State.CUT_TOWARDS_END
                 delay(LONG_CUTTING_DELAY.toLong())
@@ -305,24 +307,6 @@ class FiniteStateMachine {
                 }
             }
         }
-
-//        else if (_cuttingState.value == CuttingState.GoingForwardToCutTheLowPartOfTheMark){
-//            val averageTimeBetweenContrastTransitions =
-//                _averageTimeBetweenContrastStateTransitions.value.toList().average()
-//            val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 2
-//            _currentState.value = State.STOP
-//            _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
-//                delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-//                _currentState.value = State.FORWARD
-//                delay((timeToGoDownBeforeCut / 1000).toLong())
-//                _currentState.value = State.CUT_TOWARDS_END
-//                _cuttingState.value = CuttingState.None
-//                delay(LONG_CUTTING_DELAY.toLong())
-//                if (_currentState.value == State.CUT_TOWARDS_END) {
-//                    _currentState.value = State.STOP
-//                }
-//            }
-//        }
     }
 
     private fun onLowDetectedInCalibrationMode() {
@@ -346,7 +330,6 @@ class FiniteStateMachine {
 
         _averageTimeBetweenContrastStateTransitions.value =
             Triple(collectedValues[0], collectedValues[1], collectedValues[2])
-//        _previousSensorReads.value = emptyList()
         _currentState.value = State.STOP
         _calibrationMode.value = false
         _actionJob.value?.cancel()
@@ -359,5 +342,6 @@ class FiniteStateMachine {
         private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
         private const val LONG_CUTTING_DELAY = 10000.toDouble()
         private const val CALIBRATION_DELAY = 10000.toDouble()
+        private const val DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE = 8
     }
 }
