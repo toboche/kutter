@@ -21,21 +21,32 @@ class FiniteStateMachine {
     val calibrationMode = _calibrationMode.asStateFlow()
     private var _averageTimeBetweenContrastStateTransitions = MutableStateFlow(
         Triple(
-            DEFAULT_PRINT_MARK_SCAN_DELAY,
-            DEFAULT_PRINT_MARK_SCAN_DELAY,
-            DEFAULT_PRINT_MARK_SCAN_DELAY
+            59048.0, 66774.0, 56829.0
         )
     )
     val averageTimeBetweenContrastStateTransitions = _averageTimeBetweenContrastStateTransitions.asStateFlow()
-    private var _accuracy = MutableStateFlow(Triple(1.0, 1.0, 1.0))
+    private var _accuracy = MutableStateFlow(Triple(.5, .5, .5))
     val accuracy = _accuracy.asStateFlow()
     private val _manualOverride = MutableStateFlow(false)
     val manualOverride = _manualOverride.asStateFlow()
     var _cuttingState = MutableStateFlow(CuttingState.None)
+
     enum class CuttingState {
         None,
         Cutting,
     }
+
+    init {
+        CoroutineScope(Dispatchers.Main).launch {
+            _manualOverride.collect {
+                if (it) {
+                    _cuttingState.value = CuttingState.None
+                    _previousSensorReads.value = emptyList()
+                }
+            }
+        }
+    }
+
     fun transition(input: Input) {
         if (input == ContrastSensorLow) {
             _currentStateSensor.value = false
@@ -57,12 +68,12 @@ class FiniteStateMachine {
         when (input) {
             MoveBackwardsEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.BACKWARD)
+                updateStateWithDelay(State.PAPER_MOVING_BACKWARD)
             }
 
             MoveForwardEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.FORWARD)
+                updateStateWithDelay(State.PAPER_MOVING_FORWARD)
             }
 
             MoveTowardsStartEntered -> {
@@ -78,6 +89,7 @@ class FiniteStateMachine {
             StopEntered -> {
                 _currentState.value = State.STOP
                 _manualOverride.value = false
+                _cuttingState.value = CuttingState.None
             }
 
             CutterEndDetected -> {
@@ -118,12 +130,12 @@ class FiniteStateMachine {
 
             MoveBackwardsEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.BACKWARD)
+                updateStateWithDelay(State.PAPER_MOVING_BACKWARD)
             }
 
             MoveForwardEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.FORWARD)
+                updateStateWithDelay(State.PAPER_MOVING_FORWARD)
             }
 
             MoveTowardsStartEntered -> {
@@ -135,14 +147,47 @@ class FiniteStateMachine {
                 _manualOverride.value = true
                 updateStateWithDelay(State.CUT_TOWARDS_END)
             }
+
+            HoldingMotorEnteredDown -> {
+                _manualOverride.value = true
+                updateStateWithDelay(
+                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_DOWN) {
+                        State.STOP
+                    } else {
+                        State.STOP_WITH_ELECTROMAGNET_GOING_DOWN
+                    }
+                )
+            }
+
+            HoldingMotorEnteredUp -> {
+                _manualOverride.value = true
+                updateStateWithDelay(
+                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_UP) {
+                        State.STOP
+                    } else {
+                        State.STOP_WITH_ELECTROMAGNET_GOING_UP
+                    }
+                )
+            }
+
+            ForceStartCuttingEntered -> {
+                forceStartCutting()
+            }
         }
     }
 
     private fun updateStateWithDelay(state: State) {
         _currentState.value = State.STOP
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
+        scheduleActionCancelledWhenOtherStarts {
+            delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)
             _currentState.value = state
+        }
+    }
+
+    private fun scheduleActionCancelledWhenOtherStarts(block: suspend kotlinx.coroutines.CoroutineScope.() -> kotlin.Unit) {
+        _actionJob.value?.cancel()
+        _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
+            block()
         }
     }
 
@@ -164,20 +209,24 @@ class FiniteStateMachine {
                 }
                 val averageTimeBetweenContrastTransitions =
                     _averageTimeBetweenContrastStateTransitions.value.toList().average()
-                val timeToGoDownBeforeCut = averageTimeBetweenContrastTransitions * 7
+                val timeToGoDownBeforeCut =
+                    averageTimeBetweenContrastTransitions * LENGTH_BETWEEN_CUTTING_LEFT_AND_RIGHT
                 _currentState.value = State.STOP
-                _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
-                    delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-                    _currentState.value = State.FORWARD
+                scheduleActionCancelledWhenOtherStarts {
+                    delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)
+                    _currentState.value = State.STOP_WITH_ELECTROMAGNET_GOING_UP
+                    delay(DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP)
+                    _currentState.value = State.PAPER_MOVING_FORWARD
                     delay((timeToGoDownBeforeCut / 1000).toLong())
+                    _currentState.value = State.STOP_WITH_ELECTROMAGNET_GOING_DOWN
+                    delay(DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN)
                     _currentState.value = State.CUT_TOWARDS_START
                     _cuttingState.value = CuttingState.None
-                    delay(LONG_CUTTING_DELAY.toLong())
+                    delay(CUTTING_TIMEOUT.toLong())
                     if (_currentState.value == State.CUT_TOWARDS_START) {
                         _currentState.value = State.STOP
                     }
                 }
-
             }
 
             CutterStartDetected -> {
@@ -185,7 +234,12 @@ class FiniteStateMachine {
                     _currentState.value = State.STOP
                     return
                 }
-                moveForwardReadingCurrentSensorState()
+                scheduleActionCancelledWhenOtherStarts {
+                    _currentState.value = State.STOP_WITH_ELECTROMAGNET_GOING_UP
+                    delay(DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP)
+                    _cuttingState.value = CuttingState.None
+                    moveForwardReadingCurrentSensorState()
+                }
             }
 
             StartEntered -> {
@@ -205,12 +259,12 @@ class FiniteStateMachine {
 
             MoveBackwardsEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.BACKWARD)
+                updateStateWithDelay(State.PAPER_MOVING_BACKWARD)
             }
 
             MoveForwardEntered -> {
                 _manualOverride.value = true
-                updateStateWithDelay(State.FORWARD)
+                updateStateWithDelay(State.PAPER_MOVING_FORWARD)
             }
 
             MoveTowardsStartEntered -> {
@@ -222,6 +276,32 @@ class FiniteStateMachine {
                 _manualOverride.value = true
                 updateStateWithDelay(State.CUT_TOWARDS_END)
             }
+
+            HoldingMotorEnteredDown -> {
+                _manualOverride.value = true
+                updateStateWithDelay(
+                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_DOWN) {
+                        State.STOP
+                    } else {
+                        State.STOP_WITH_ELECTROMAGNET_GOING_DOWN
+                    }
+                )
+            }
+
+            HoldingMotorEnteredUp -> {
+                _manualOverride.value = true
+                updateStateWithDelay(
+                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_UP) {
+                        State.STOP
+                    } else {
+                        State.STOP_WITH_ELECTROMAGNET_GOING_UP
+                    }
+                )
+            }
+
+            ForceStartCuttingEntered -> {
+                forceStartCutting()
+            }
         }
     }
 
@@ -229,16 +309,16 @@ class FiniteStateMachine {
         _calibrationMode.value = true
         _previousSensorReads.value = listOf(Instant.now() to _currentStateSensor.value)
         moveForwardReadingCurrentSensorState()
-        _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
+        scheduleActionCancelledWhenOtherStarts {
             delay(CALIBRATION_DELAY.toLong())
-            if (_currentState.value == State.FORWARD && _calibrationMode.value) {
+            if (_currentState.value == State.PAPER_MOVING_FORWARD && _calibrationMode.value) {
                 _currentState.value = State.STOP
             }
         }
     }
 
     private fun moveForwardReadingCurrentSensorState() {
-        _currentState.value = State.FORWARD
+        _currentState.value = State.PAPER_MOVING_FORWARD
         _previousSensorReads.value = listOf(Instant.now() to _currentStateSensor.value)
         _actionJob.value?.cancel()
     }
@@ -291,20 +371,28 @@ class FiniteStateMachine {
 
         if (_cuttingState.value == CuttingState.None) {
 
-            _cuttingState.value = CuttingState.Cutting
-            val averageTimeBetweenContrastTransitions =
-                _averageTimeBetweenContrastStateTransitions.value.toList().average()
-            val timeToGoDownBeforeCut = -(averageTimeBetweenContrastTransitions * 5) + (DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE * averageTimeBetweenContrastTransitions)
-            _currentState.value = State.STOP
-            _actionJob.value = CoroutineScope(Dispatchers.Main).launch {
-                delay(SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION)
-                _currentState.value = State.FORWARD
-                delay((timeToGoDownBeforeCut / 1000).toLong())
-                _currentState.value = State.CUT_TOWARDS_END
-                delay(LONG_CUTTING_DELAY.toLong())
-                if (_currentState.value == State.CUT_TOWARDS_END) {
-                    _currentState.value = State.STOP
-                }
+            forceStartCutting()
+        }
+    }
+
+    private fun forceStartCutting() {
+        _cuttingState.value = CuttingState.Cutting
+        val averageTimeBetweenContrastTransitions =
+            _averageTimeBetweenContrastStateTransitions.value.toList().average()
+        val timeToGoDownBeforeCut =
+//            -(averageTimeBetweenContrastTransitions * 7) +
+            (DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE * averageTimeBetweenContrastTransitions)
+        _currentState.value = State.STOP
+        scheduleActionCancelledWhenOtherStarts {
+            delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)
+            _currentState.value = State.PAPER_MOVING_FORWARD
+            delay((timeToGoDownBeforeCut / 1000).toLong())
+            _currentState.value = State.STOP_WITH_ELECTROMAGNET_GOING_DOWN
+            delay(DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN)
+            _currentState.value = State.CUT_TOWARDS_END
+            delay(CUTTING_TIMEOUT.toLong())
+            if (_currentState.value == State.CUT_TOWARDS_END) {
+                _currentState.value = State.STOP
             }
         }
     }
@@ -337,11 +425,14 @@ class FiniteStateMachine {
 
 
     companion object {
-        //TODO: calibrate these values or make them editable by the user
-        private const val DEFAULT_PRINT_MARK_SCAN_DELAY = 2000.toDouble()
-        private const val SHORT_DELAY_BEFORE_MOVING_OPPOSITE_DIRECTION = 100L
-        private const val LONG_CUTTING_DELAY = 10000.toDouble()
+        private const val LENGTH_BETWEEN_CUTTING_LEFT_AND_RIGHT = 12
+        private const val SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION = 100L
+        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN = 3000L
+        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP = 2500L
+
+        //when cutting in any of the directions, this time is set as timeout for the caret movement
+        private const val CUTTING_TIMEOUT = 10000.toDouble()
         private const val CALIBRATION_DELAY = 10000.toDouble()
-        private const val DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE = 8
+        private const val DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE = 5
     }
 }

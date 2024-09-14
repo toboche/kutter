@@ -25,11 +25,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import machine.FiniteStateMachine
-import output.states.CutterMotorState
-import output.states.MainMotorState
-import output.states.OutputState
-import output.states.State
+import output.states.*
 
+//these are all GPIO PINS (not "just" pin numbers)
 private const val CONTRAST_SENSOR_BCM_PIN = 17
 private const val START_SENSOR_BCM_PIN = 10
 private const val END_SENSOR_BCM_PIN = 11
@@ -38,8 +36,10 @@ private const val MAIN_MOTOR_PIN_1 = 27
 private const val MAIN_MOTOR_PIN_2 = 22
 private const val CUTTER_MOTOR_PIN_1 = 23
 private const val CUTTER_MOTOR_PIN_2 = 24
-//private const val ACTUATOR_PIN_1 = 9 // do nt use 9, it fried
-private const val ACTUATOR_PIN_1 = 25
+
+//private const val ACTUATOR_PIN_1 = 9 // do nt use 9, it's fried
+private const val ELECTROMAGNET_ACTUATOR_PIN_1 = 8
+private const val ELECTROMAGNET_ACTUATOR_PIN_2 = 7
 
 private val finiteStateMachine = FiniteStateMachine()
 
@@ -55,7 +55,8 @@ fun main() = application() {
                 val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2, DigitalState.LOW)
                 val cutterMotorPin1 = createMotorGpioOutput(CUTTER_MOTOR_PIN_1, DigitalState.LOW)
                 val cutterMotorPin2 = createMotorGpioOutput(CUTTER_MOTOR_PIN_2, DigitalState.LOW)
-                val actuatorPin = createMotorGpioOutput(ACTUATOR_PIN_1, DigitalState.HIGH)
+                val electromagnetActuatorPin1 = createMotorGpioOutput(ELECTROMAGNET_ACTUATOR_PIN_1, DigitalState.LOW)
+                val electromagnetActuatorPin2 = createMotorGpioOutput(ELECTROMAGNET_ACTUATOR_PIN_2, DigitalState.LOW)
                 var previousState: OutputState? = null
                 while (true) {
                     val state = finiteStateMachine.currentState.value.outputState
@@ -83,19 +84,32 @@ fun main() = application() {
                         CutterMotorState.LEFT -> {
                             cutterMotorPin1.high()
                             cutterMotorPin2.low()
-                            actuatorPin.low()
                         }
 
                         CutterMotorState.RIGHT -> {
                             cutterMotorPin1.low()
                             cutterMotorPin2.high()
-                            actuatorPin.low()
                         }
 
                         CutterMotorState.NONE -> {
                             cutterMotorPin1.low()
                             cutterMotorPin2.low()
-                            actuatorPin.high()
+                        }
+                    }
+                    when (state.electromagnetSate) {
+                        HoldingMotorState.UP -> {
+                            electromagnetActuatorPin1.low()
+                            electromagnetActuatorPin2.high()
+                        }
+
+                        HoldingMotorState.DOWN -> {
+                            electromagnetActuatorPin1.high()
+                            electromagnetActuatorPin2.low()
+                        }
+
+                        HoldingMotorState.NONE -> {
+                            electromagnetActuatorPin1.low()
+                            electromagnetActuatorPin2.low()
                         }
                     }
                 }
@@ -111,6 +125,9 @@ fun main() = application() {
         Key.Spacebar to StopEntered,
         Key.S to StartEntered,
         Key.K to CalibrationEntered,
+        Key.D to HoldingMotorEnteredDown,
+        Key.G to HoldingMotorEnteredUp,
+        Key.F to ForceStartCuttingEntered,
     )
 
     Window(
@@ -188,6 +205,20 @@ fun main() = application() {
                     }) {
                         Text("Rozpocznij kalibrację")
                     }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = HoldingMotorEnteredDown)
+                        }
+                    }) {
+                        Text("Silniki trzymajace w dol")
+                    }
+                    Button(modifier = Modifier.align(Alignment.CenterHorizontally), onClick = {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finiteStateMachine.transition(input = HoldingMotorEnteredUp)
+                        }
+                    }) {
+                        Text("Silniki trzymajace w gore")
+                    }
                 }
                 Column {
                     Spacer(modifier = Modifier.size(30.dp))
@@ -237,6 +268,9 @@ fun main() = application() {
                     Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
                     Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
                     Text("Dokladność: ${accuracy.value}")
+                    println("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
+                    println("Dokladność: ${accuracy.value}")
+
                 }
             }
         }
