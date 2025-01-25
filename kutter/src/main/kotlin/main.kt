@@ -14,16 +14,14 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.pi4j.context.Context
+import com.pi4j.io.gpio.digital.DigitalOutput
 import com.pi4j.io.gpio.digital.DigitalState
 import com.pi4j.io.gpio.digital.PullResistance
 import com.pi4j.ktx.console
 import com.pi4j.ktx.io.digital.*
 import com.pi4j.ktx.pi4jAsync
 import input.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import machine.FiniteStateMachine
 import output.states.*
 
@@ -34,6 +32,7 @@ private const val END_SENSOR_BCM_PIN = 11
 
 private const val MAIN_MOTOR_PIN_1 = 27
 private const val MAIN_MOTOR_PIN_2 = 22
+private const val MAIN_MOTOR_PIN_3 = 21
 private const val CUTTER_MOTOR_PIN_1 = 23
 private const val CUTTER_MOTOR_PIN_2 = 24
 
@@ -51,8 +50,9 @@ fun main() = application() {
                 subscribeToStartSensorInput()
                 subscribeToEndSensorInput()
 
-                val mainMotorPin1 = createMotorGpioOutput(MAIN_MOTOR_PIN_1, DigitalState.LOW)
-                val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2, DigitalState.LOW)
+                val mainMotorPin1 = createMotorGpioOutput(MAIN_MOTOR_PIN_1, DigitalState.HIGH)
+                val mainMotorPin2 = createMotorGpioOutput(MAIN_MOTOR_PIN_2, DigitalState.HIGH)
+                val mainMotorEnablingPin = createMotorGpioOutput(MAIN_MOTOR_PIN_3, DigitalState.LOW)
                 val cutterMotorPin1 = createMotorGpioOutput(CUTTER_MOTOR_PIN_1, DigitalState.LOW)
                 val cutterMotorPin2 = createMotorGpioOutput(CUTTER_MOTOR_PIN_2, DigitalState.LOW)
                 val electromagnetActuatorPin1 = createMotorGpioOutput(ELECTROMAGNET_ACTUATOR_PIN_1, DigitalState.LOW)
@@ -60,26 +60,6 @@ fun main() = application() {
                 var previousState: OutputState? = null
                 while (true) {
                     val state = finiteStateMachine.currentState.value.outputState
-                    if (previousState == state) {
-                        continue
-                    }
-                    previousState = state
-                    when (state.mainMotorState) {
-                        MainMotorState.NONE -> {
-                            mainMotorPin1.low()
-                            mainMotorPin2.low()
-                        }
-
-                        MainMotorState.FORWARD -> {
-                            mainMotorPin1.low()
-                            mainMotorPin2.high()
-                        }
-
-                        MainMotorState.BACKWARDS -> {
-                            mainMotorPin1.high()
-                            mainMotorPin2.low()
-                        }
-                    }
                     when (state.cutterMotorState) {
                         CutterMotorState.LEFT -> {
                             cutterMotorPin1.high()
@@ -110,6 +90,35 @@ fun main() = application() {
                         HoldingMotorState.NONE -> {
                             electromagnetActuatorPin1.low()
                             electromagnetActuatorPin2.low()
+                        }
+                    }
+                    if (previousState == state) {
+                        continue
+                    }
+                    previousState = state
+                    when (state.mainMotorState) {
+                        MainMotorState.NONE -> {
+                            stopMainMotorOutputAndDelay100ms(mainMotorEnablingPin, mainMotorPin1, mainMotorPin2)
+                        }
+
+                        MainMotorState.FORWARD -> {
+                            stopMainMotorOutputAndDelay100ms(mainMotorEnablingPin, mainMotorPin1, mainMotorPin2)
+                            if (mainMotorEnablingPin.isLow) {
+                                println("skipping enabling main motor sth went wrong")
+                            }
+                            mainMotorPin1.high()
+                            mainMotorPin2.low()
+                            mainMotorEnablingPin.low()
+                        }
+
+                        MainMotorState.BACKWARDS -> {
+                            stopMainMotorOutputAndDelay100ms(mainMotorEnablingPin, mainMotorPin1, mainMotorPin2)
+                            if (mainMotorEnablingPin.isLow) {
+                                println("skipping enabling main motor sth went wrong")
+                            }
+                            mainMotorPin1.low()
+                            mainMotorPin2.high()
+                            mainMotorEnablingPin.low()
                         }
                     }
                 }
@@ -146,7 +155,7 @@ fun main() = application() {
     ) {
         MaterialTheme {
             val currentState = finiteStateMachine.currentState.collectAsState()
-            val previousSensorReads = finiteStateMachine.previousSensorReads.collectAsState()
+//            val previousSensorReads = finiteStateMachine.previousSensorReads.collectAsState()
             val previousStateSensor = finiteStateMachine.previousStateSensor.collectAsState()
             val calibrationMode = finiteStateMachine.calibrationMode.collectAsState()
             val averageTimeBetweenContrastStateTransitions =
@@ -257,7 +266,7 @@ fun main() = application() {
                         Text("Odwijanie do przodu⬇️")
                     }
                     Text("Stan: ${currentState.value}")
-                    Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value.map { "\n $it" }}")
+//                    Text("Poprzednie odczyty sensora kontrastu: ${previousSensorReads.value.map { "\n $it" }}")
                     Text(
                         "Sensor w stanie niskim: ${
                             if (previousStateSensor.value) {
@@ -266,15 +275,28 @@ fun main() = application() {
                         }}"
                     )
                     Text("Tryb kalibracji: ${formatBool(calibrationMode)}")
-                    Text("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
+                    Text("Średni czas pomiędzy zmianami stanu [milisekundy]:")
+                    Text("${averageTimeBetweenContrastStateTransitions.value}")
                     Text("Dokladność: ${accuracy.value}")
-                    println("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
-                    println("Dokladność: ${accuracy.value}")
+//                    println("Średni czas pomiędzy zmianami stanu [milisekundy]: ${averageTimeBetweenContrastStateTransitions.value}")
+//                    println("Dokladność: ${accuracy.value}")
 
                 }
             }
         }
     }
+}
+
+private suspend fun stopMainMotorOutputAndDelay100ms(
+    mainMotorEnablingPin: DigitalOutput,
+    mainMotorPin1: DigitalOutput,
+    mainMotorPin2: DigitalOutput,
+) {
+    mainMotorEnablingPin.high()
+    delay(50)
+    mainMotorPin1.high()
+    mainMotorPin2.high()
+    delay(50)
 }
 
 private fun formatBool(previousStateSensorHigh: androidx.compose.runtime.State<Boolean>) =
