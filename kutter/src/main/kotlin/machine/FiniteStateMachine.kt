@@ -15,7 +15,8 @@ class FiniteStateMachine {
     private var _actionJob = MutableStateFlow<Job?>(null)
     val actionJob = _actionJob.asStateFlow()
     private var _previousSensorReads = listOf<Pair<Instant, Boolean>>() //time, sensor state
-//    val previousSensorReads = _previousSensorReads.asStateFlow()
+
+    //    val previousSensorReads = _previousSensorReads.asStateFlow()
     private var _currentStateSensor = MutableStateFlow(false)
     val previousStateSensor = _currentStateSensor.asStateFlow()
     private var _calibrationMode = MutableStateFlow(false)
@@ -33,8 +34,7 @@ class FiniteStateMachine {
     var _cuttingState = MutableStateFlow(CuttingState.None)
 
     enum class CuttingState {
-        None,
-        Cutting,
+        None, Cutting,
     }
 
     init {
@@ -53,17 +53,13 @@ class FiniteStateMachine {
     private fun readAverageTimeBetweenContrastStateTransitionsFromFile() {
         println("start reading cutter_settings.blob")
         try {
-            val rawValues = File("cutter_settings.blob")
-                .readText()
-                .split(";")
-                .map { it.toDouble() }
+            val rawValues = File("cutter_settings.blob").readText().split(";").map { it.toDouble() }
 
-            _averageTimeBetweenContrastStateTransitions.value =
-                Triple(
-                    rawValues[0],
-                    rawValues[1],
-                    rawValues[2],
-                )
+            _averageTimeBetweenContrastStateTransitions.value = Triple(
+                rawValues[0],
+                rawValues[1],
+                rawValues[2],
+            )
         } catch (e: Exception) {
             println("couldn't read cutter_settings.blob")
             e.printStackTrace()
@@ -217,14 +213,14 @@ class FiniteStateMachine {
     private fun handleInputForNonCalibrationMode(input: Input) {
         when (input) {
             ContrastSensorHigh -> {
-                if(_cuttingState.value == CuttingState.Cutting){
+                if (_cuttingState.value == CuttingState.Cutting) {
                     return
                 }
                 _previousSensorReads = _previousSensorReads + (Instant.now() to true)
             }
 
             ContrastSensorLow -> {
-                if(_cuttingState.value == CuttingState.Cutting){
+                if (_cuttingState.value == CuttingState.Cutting) {
                     return
                 }
                 _previousSensorReads = _previousSensorReads + (Instant.now() to false)
@@ -310,28 +306,32 @@ class FiniteStateMachine {
 
             HoldingMotorEnteredDown -> {
                 _manualOverride.value = true
-                updateStateWithDelay(
-                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_DOWN) {
-                        State.STOP
-                    } else {
-                        State.STOP_WITH_ELECTROMAGNET_GOING_DOWN
-                    }
-                )
+                setHoldingDownMotorMovementWithTimeOut(State.STOP_WITH_ELECTROMAGNET_GOING_DOWN)
             }
 
             HoldingMotorEnteredUp -> {
                 _manualOverride.value = true
-                updateStateWithDelay(
-                    if (_currentState.value == State.STOP_WITH_ELECTROMAGNET_GOING_UP) {
-                        State.STOP
-                    } else {
-                        State.STOP_WITH_ELECTROMAGNET_GOING_UP
-                    }
-                )
+                setHoldingDownMotorMovementWithTimeOut(State.STOP_WITH_ELECTROMAGNET_GOING_UP)
             }
 
             ForceStartCuttingEntered -> {
                 forceStartCutting()
+            }
+        }
+    }
+
+    private fun setHoldingDownMotorMovementWithTimeOut(state: State) {
+        scheduleActionCancelledWhenOtherStarts {
+            _currentState.value = State.STOP
+            delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)
+            _currentState.value = if (_currentState.value == state) {
+                State.STOP
+            } else {
+                state
+            }
+            delay(MAX_TIME_FOR_FORCED_HOLDING_MOTOR_MOVEMENT)
+            if (_currentState.value == state) {
+                _currentState.value = State.STOP
             }
         }
     }
@@ -377,21 +377,16 @@ class FiniteStateMachine {
             println("----------------incorrect last 5-----------------")
             return
         }
-        val collectedValues = (_previousSensorReads.takeLast(5)
-            .drop(1)
-            .windowed(2, 1, false)
-            .map { it[0] to it[1] }
-            .map { (t1, t2) -> ChronoUnit.MICROS.between(t1.first, t2.first).toDouble() }
-            .take(3))
+        val collectedValues = (_previousSensorReads.takeLast(5).drop(1).windowed(2, 1, false).map { it[0] to it[1] }
+            .map { (t1, t2) -> ChronoUnit.MICROS.between(t1.first, t2.first).toDouble() }.take(3))
         val collectedValuesToCheck = Triple(collectedValues[0], collectedValues[1], collectedValues[2])
-        val shouldStartCutting =
-            collectedValuesToCheck.toList().withIndex().all { (index, measurement) ->
-                val lowerBoundForTimeBetweenSwitches =
-                    _averageTimeBetweenContrastStateTransitions.value.toList()[index] * (1 - _accuracy.value.toList()[index])
-                val upperBoundForTimeBetweenSwitches =
-                    _averageTimeBetweenContrastStateTransitions.value.toList()[index] * (1 + _accuracy.value.toList()[index])
-                measurement in lowerBoundForTimeBetweenSwitches..upperBoundForTimeBetweenSwitches
-            }
+        val shouldStartCutting = collectedValuesToCheck.toList().withIndex().all { (index, measurement) ->
+            val lowerBoundForTimeBetweenSwitches =
+                _averageTimeBetweenContrastStateTransitions.value.toList()[index] * (1 - _accuracy.value.toList()[index])
+            val upperBoundForTimeBetweenSwitches =
+                _averageTimeBetweenContrastStateTransitions.value.toList()[index] * (1 + _accuracy.value.toList()[index])
+            measurement in lowerBoundForTimeBetweenSwitches..upperBoundForTimeBetweenSwitches
+        }
 
         if (!shouldStartCutting) {
 //            _previousSensorReads = _previousSensorReads.drop(2)
@@ -399,7 +394,7 @@ class FiniteStateMachine {
             println(collectedValuesToCheck.toList().map { "\n $it" })
             println("----------------ended rejecting-----------------")
             return
-        }else{
+        } else {
             println("================accepting================")
             println(collectedValuesToCheck.toList().map { "\n $it" })
             println("================ended accepting================")
@@ -418,8 +413,7 @@ class FiniteStateMachine {
 
     private fun forceStartCutting() {
         _cuttingState.value = CuttingState.Cutting
-        val averageTimeBetweenContrastTransitions =
-            _averageTimeBetweenContrastStateTransitions.value.toList().average()
+        val averageTimeBetweenContrastTransitions = _averageTimeBetweenContrastStateTransitions.value.toList().average()
         val timeToGoDownBeforeCut =
 //            -(averageTimeBetweenContrastTransitions * 7) +
             (DISTANCE_BETWEEN_CONTRAST_SENSOR_AND_KNIFE * averageTimeBetweenContrastTransitions)
@@ -452,12 +446,8 @@ class FiniteStateMachine {
         if (_previousSensorReads.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
             return
         }
-        val collectedValues = (_previousSensorReads.takeLast(5)
-            .drop(1)
-            .windowed(2, 1, false)
-            .map { it[0] to it[1] }
-            .map { (t1, t2) -> ChronoUnit.MICROS.between(t1.first, t2.first).toDouble() }
-            .take(3))
+        val collectedValues = (_previousSensorReads.takeLast(5).drop(1).windowed(2, 1, false).map { it[0] to it[1] }
+            .map { (t1, t2) -> ChronoUnit.MICROS.between(t1.first, t2.first).toDouble() }.take(3))
 
         _averageTimeBetweenContrastStateTransitions.value =
             Triple(collectedValues[0], collectedValues[1], collectedValues[2])
@@ -467,11 +457,8 @@ class FiniteStateMachine {
         try {
             File("cutter_settings.blob").createNewFile()
             val file = File("cutter_settings.blob")
-            file.writeText(
-                _averageTimeBetweenContrastStateTransitions.value.toList()
-                    .map { it.toString() }
-                    .joinToString(";")
-            )
+            file.writeText(_averageTimeBetweenContrastStateTransitions.value.toList().map { it.toString() }
+                .joinToString(";"))
         } catch (e: Exception) {
             println("couldn't write cutter_settings.blob")
             e.printStackTrace()
@@ -486,6 +473,7 @@ class FiniteStateMachine {
         private const val TIME_TO_ROLL_PAPER_BACK_BEORE_CUTTING = 150L
         private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN = 4000L
         private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP = 3500L
+        private const val MAX_TIME_FOR_FORCED_HOLDING_MOTOR_MOVEMENT = 4000L
 
         //when cutting in any of the directions, this time is set as timeout for the caret movement
         private const val CUTTING_TIMEOUT = 10000.toDouble()
