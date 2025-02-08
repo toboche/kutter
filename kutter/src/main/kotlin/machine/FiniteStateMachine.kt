@@ -106,6 +106,7 @@ class FiniteStateMachine {
             }
 
             StopEntered -> {
+                _actionJob.value?.cancel()
                 _currentState.value = State.STOP
                 _manualOverride.value = false
                 _cuttingState.value = CuttingState.None
@@ -196,6 +197,7 @@ class FiniteStateMachine {
     }
 
     private fun updateStateWithDelay(state: State) {
+        println("5")
         _currentState.value = State.STOP
         scheduleActionCancelledWhenOtherStarts {
             delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)

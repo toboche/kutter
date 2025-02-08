@@ -24,6 +24,7 @@ import input.*
 import kotlinx.coroutines.*
 import machine.FiniteStateMachine
 import output.states.*
+import java.util.concurrent.TimeUnit
 
 //these are all GPIO PINS (not "just" pin numbers)
 private const val CONTRAST_SENSOR_BCM_PIN = 17
@@ -333,7 +334,7 @@ private fun Context.subscribeToStartSensorInput() {
         id("START_SENSOR_BCM_PIN")
         name("START_SENSOR_BCM_PIN")
         pull(PullResistance.PULL_UP)
-        debounce(3000L)
+        debounce(30L, TimeUnit.MILLISECONDS)
         piGpioProvider()
     }.onLow {
         CoroutineScope(Dispatchers.Main).launch {
