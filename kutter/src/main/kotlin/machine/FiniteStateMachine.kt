@@ -4,7 +4,9 @@ import input.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import output.states.State
+import telemetry.Logger
 import java.io.File
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -48,10 +50,16 @@ class FiniteStateMachine {
                 }
             }
         }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            _currentState.collectLatest {
+                Logger.logStateChange(it)
+            }
+        }
     }
 
     private fun readAverageTimeBetweenContrastStateTransitionsFromFile() {
-        println("start reading cutter_settings.blob")
+        Logger.onStartReadingSettingFromFile()
         try {
             val rawValues = File("cutter_settings.blob").readText().split(";").map { it.toDouble() }
 
@@ -60,8 +68,9 @@ class FiniteStateMachine {
                 rawValues[1],
                 rawValues[2],
             )
+            Logger.onSettingFromFileRead(_averageTimeBetweenContrastStateTransitions.value)
         } catch (e: Exception) {
-            println("couldn't read cutter_settings.blob")
+        Logger.onErrorReadingSettingFromFile()
             e.printStackTrace()
         }
     }
@@ -145,6 +154,7 @@ class FiniteStateMachine {
             CutterStartDetected -> {}
             StartEntered -> {}
             StopEntered -> {
+                _actionJob.value?.cancel()
                 _currentState.value = State.STOP
             }
 
@@ -197,7 +207,6 @@ class FiniteStateMachine {
     }
 
     private fun updateStateWithDelay(state: State) {
-        println("5")
         _currentState.value = State.STOP
         scheduleActionCancelledWhenOtherStarts {
             delay(SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION)
@@ -213,6 +222,7 @@ class FiniteStateMachine {
     }
 
     private fun handleInputForNonCalibrationMode(input: Input) {
+        Logger.handleInputForNonCalibrationMode(input)
         when (input) {
             ContrastSensorHigh -> {
                 if (_cuttingState.value == CuttingState.Cutting) {
@@ -278,6 +288,7 @@ class FiniteStateMachine {
             }
 
             StopEntered -> {
+                _actionJob.value?.cancel()
                 _currentState.value = State.STOP
                 _previousSensorReads = emptyList()
             }
@@ -364,19 +375,19 @@ class FiniteStateMachine {
         //    t0    t1       t2     t3      t4     t5
 
         if (_cuttingState.value == CuttingState.Cutting) {
-            println("----------------still cutting-----------------")
+            Logger.onLowDetectedWhileWorking("skipping because cutting")
             return
         }
         if (_previousSensorReads.count() < 5) {
-            println("---------------- ${_previousSensorReads.count()} less than 5-----------------")
+            Logger.onLowDetectedWhileWorking("${_previousSensorReads.count()} less than 5")
             return
         }
         if (_currentState.value == State.CUT_TOWARDS_END || _currentState.value == State.CUT_TOWARDS_START || _currentState.value == State.PAUSE_BEFORE_CUTS) {
-            println("----------------state incorrect-----------------")
+            Logger.onLowDetectedWhileWorking("state incorrect")
             return
         }
         if (_previousSensorReads.takeLast(5).map { it.second } != listOf(false, true, false, true, false)) {
-            println("----------------incorrect last 5-----------------")
+            Logger.onLowDetectedWhileWorking("incorrect last 5")
             return
         }
         val collectedValues = (_previousSensorReads.takeLast(5).drop(1).windowed(2, 1, false).map { it[0] to it[1] }
@@ -393,22 +404,21 @@ class FiniteStateMachine {
         if (!shouldStartCutting) {
 //            _previousSensorReads = _previousSensorReads.drop(2)
             println("----------------rejecting-----------------")
-            println(collectedValuesToCheck.toList().map { "\n $it" })
-            println("----------------ended rejecting-----------------")
+            Logger.onLowDetectedWhileWorking("rejecting:\n" + collectedValuesToCheck.toList().map { "\n $it" })
+            Logger.onLowDetectedWhileWorking("expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
             return
         } else {
-            println("================accepting================")
+            Logger.onLowDetectedWhileWorking("accepting:\n" + collectedValuesToCheck.toList().map { "\n $it" })
+            Logger.onLowDetectedWhileWorking("expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
             println(collectedValuesToCheck.toList().map { "\n $it" })
-            println("================ended accepting================")
         }
 
         _previousSensorReads = emptyList()
         _actionJob.value?.cancel()
-        println("================1================ ${_cuttingState.value}")
 
+        Logger.onLowDetectedWhileWorking("checking state before cutting: " + _cuttingState.value)
         if (_cuttingState.value == CuttingState.None) {
-            println("================2================")
-
+        Logger.onLowDetectedWhileWorking("forceStartCutting")
             forceStartCutting()
         }
     }
@@ -473,9 +483,9 @@ class FiniteStateMachine {
         private const val LENGTH_BETWEEN_CUTTING_LEFT_AND_RIGHT = 22
         private const val SHORT_DELAY_BEFORE_CHANGING_MOTOR_MOVEMENT_DIRECTION = 100L
         private const val TIME_TO_ROLL_PAPER_BACK_BEORE_CUTTING = 150L
-        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN = 4000L
-        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP = 3500L
-        private const val MAX_TIME_FOR_FORCED_HOLDING_MOTOR_MOVEMENT = 4000L
+        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_DOWN = 2000L
+        private const val DELAY_WHEN_HOLDING_MOTOR_IS_GOING_UP = 1800L
+        private const val MAX_TIME_FOR_FORCED_HOLDING_MOTOR_MOVEMENT = 3000L
 
         //when cutting in any of the directions, this time is set as timeout for the caret movement
         private const val CUTTING_TIMEOUT = 10000.toDouble()

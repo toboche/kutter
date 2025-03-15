@@ -19,6 +19,7 @@ import com.pi4j.io.gpio.digital.DigitalState
 import com.pi4j.io.gpio.digital.PullResistance
 import com.pi4j.ktx.console
 import com.pi4j.ktx.io.digital.*
+import com.pi4j.ktx.pi4j
 import com.pi4j.ktx.pi4jAsync
 import input.*
 import kotlinx.coroutines.*
@@ -45,7 +46,7 @@ private val finiteStateMachine = FiniteStateMachine()
 
 fun main() = application() {
     GlobalScope.launch {
-        pi4jAsync {
+        pi4j {
             console {
                 subscribeToContrastSensorInput()
                 subscribeToStartSensorInput()
@@ -320,7 +321,7 @@ private fun Context.subscribeToContrastSensorInput() {
         id("CONTRAST_SENSOR_BCM_PIN")
         name("CONTRAST_SENSOR_BCM_PIN")
         pull(PullResistance.PULL_DOWN)
-//        debounce(3L)
+        debounce(1_000L)
         piGpioProvider()
     }.onLow {
         finiteStateMachine.transition(input = ContrastSensorLow)
@@ -349,7 +350,7 @@ private fun Context.subscribeToEndSensorInput() {
         id("END_SENSOR_BCM_PIN")
         name("END_SENSOR_BCM_PIN")
         pull(PullResistance.PULL_UP)
-        debounce(3000L)
+        debounce(30L, TimeUnit.MILLISECONDS)
         piGpioProvider()
     }.onLow {
         CoroutineScope(Dispatchers.Main).launch {
