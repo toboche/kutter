@@ -33,7 +33,7 @@ class FiniteStateMachine {
     val accuracy = _accuracy.asStateFlow()
     private val _manualOverride = MutableStateFlow(false)
     val manualOverride = _manualOverride.asStateFlow()
-    var _cuttingState = MutableStateFlow(CuttingState.None)
+    private var _cuttingState = MutableStateFlow(CuttingState.None)
 
     enum class CuttingState {
         None, Cutting,
@@ -70,7 +70,7 @@ class FiniteStateMachine {
             )
             Logger.onSettingFromFileRead(_averageTimeBetweenContrastStateTransitions.value)
         } catch (e: Exception) {
-        Logger.onErrorReadingSettingFromFile()
+            Logger.onErrorReadingSettingFromFile()
             e.printStackTrace()
         }
     }
@@ -405,11 +405,13 @@ class FiniteStateMachine {
 //            _previousSensorReads = _previousSensorReads.drop(2)
             println("----------------rejecting-----------------")
             Logger.onLowDetectedWhileWorking("rejecting:\n" + collectedValuesToCheck.toList().map { "\n $it" })
-            Logger.onLowDetectedWhileWorking("expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
+            Logger.onLowDetectedWhileWorking(
+                "expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
             return
         } else {
             Logger.onLowDetectedWhileWorking("accepting:\n" + collectedValuesToCheck.toList().map { "\n $it" })
-            Logger.onLowDetectedWhileWorking("expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
+            Logger.onLowDetectedWhileWorking(
+                "expected values:\n" + _averageTimeBetweenContrastStateTransitions.value.toList().map { "\n $it" })
             println(collectedValuesToCheck.toList().map { "\n $it" })
         }
 
@@ -418,7 +420,7 @@ class FiniteStateMachine {
 
         Logger.onLowDetectedWhileWorking("checking state before cutting: " + _cuttingState.value)
         if (_cuttingState.value == CuttingState.None) {
-        Logger.onLowDetectedWhileWorking("forceStartCutting")
+            Logger.onLowDetectedWhileWorking("forceStartCutting")
             forceStartCutting()
         }
     }
